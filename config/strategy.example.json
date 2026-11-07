@@ -1,0 +1,17 @@
+{
+  "version": "0.1.0",
+  "symbol": "EURUSD",
+  "signal_timeframe": "M15",
+  "bias_timeframe": "H1",
+  "atr_period": 14,
+  "swing_left_bars": 2,
+  "swing_right_bars": 2,
+  "displacement_atr_multiple": 1.2,
+  "displacement_close_edge_fraction": 0.25,
+  "minimum_fvg_atr_multiple": 0.1,
+  "retracement_fraction": 0.5,
+  "maximum_setup_age_bars": 8,
+  "stop_buffer_atr_multiple": 0.1,
+  "target_r_multiple": 2.0,
+  "live_entries_enabled": false
+}

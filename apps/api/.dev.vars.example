@@ -1,0 +1,4 @@
+SIMULATION_MODE=true
+APP_BASE_URL=http://127.0.0.1:5173
+# Generate a local-only value before experimenting with Better Auth; do not reuse in production.
+BETTER_AUTH_SECRET=replace-with-a-random-local-development-secret

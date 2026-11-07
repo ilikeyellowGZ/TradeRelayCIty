@@ -1,0 +1,7 @@
+{
+  "website_url": "http://127.0.0.1:5173",
+  "mcp_url": "http://127.0.0.1:22346/mcp",
+  "environment": "SIMULATED",
+  "poll_seconds": 15,
+  "live_entry_enabled": false
+}

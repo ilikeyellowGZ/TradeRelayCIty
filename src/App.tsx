@@ -1,13 +1,19 @@
-import { useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { AnimatePresence, LazyMotion, domAnimation, m } from 'motion/react'
+import { useGSAP } from '@gsap/react'
+import gsap from 'gsap'
 import {
   Activity, ArrowDownRight, ArrowUpRight, Bell, Bot, BriefcaseBusiness,
   ChartNoAxesCombined, ChevronDown, CircleHelp, Clock3, Command, FlaskConical,
-  Gauge, LayoutDashboard, Menu, MoreHorizontal, PanelLeftClose,
+  Gauge, LayoutDashboard, Menu, MoreHorizontal,
   ShieldCheck, SlidersHorizontal, Sparkles, TrendingUp, WalletCards, X,
 } from 'lucide-react'
 import { BotifyMark } from './components/BotifyMark'
 import { ScoreboardChart } from './components/ScoreboardChart'
+import { AuthGate } from './components/AuthGate'
+
+type SimUser = { id: string; name: string; role: 'owner' | 'member' }
+type SimAccount = { id: string; ownerId: string; label: string; broker: string; connected: boolean; balance: { amount: number; currency: string }; equity: number; dailyPnl: number; positions: { id: string; symbol: string; description: string; side: 'BUY' | 'SELL'; volume: number; entry: number; market: number; pnl: number; source: 'SIMULATED' }[]; events: { id: string; message: string }[]; latestDecision: { decision: string; rationale: string } }
 
 const navItems = [
   { label: 'Overview', icon: LayoutDashboard },
@@ -18,12 +24,6 @@ const navItems = [
   { label: 'Backtests', icon: FlaskConical },
   { label: 'Risk Settings', icon: ShieldCheck },
   { label: 'Notifications', icon: Bell },
-]
-
-const positions = [
-  { symbol: 'EURUSD', detail: 'Euro / US Dollar', side: 'Buy', size: '0.12', entry: '1.08420', last: '1.08634', pnl: '+25.68', state: 'positive' },
-  { symbol: 'GBPUSD', detail: 'British Pound / US Dollar', side: 'Sell', size: '0.08', entry: '1.27150', last: '1.27310', pnl: '−12.80', state: 'negative' },
-  { symbol: 'XAUUSD', detail: 'Gold / US Dollar', side: 'Buy', size: '0.03', entry: '2,331.80', last: '2,338.10', pnl: '+18.90', state: 'positive' },
 ]
 
 const activities = [
@@ -40,7 +40,7 @@ function Sidebar({ active, onNavigate, open, onClose }: { active: string; onNavi
       </AnimatePresence>
       <m.aside className={`sidebar${open ? ' sidebar--open' : ''}`} aria-label="Main navigation" initial={false} animate={{ x: open || window.innerWidth >= 1024 ? 0 : -272 }} transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}>
         <div className="sidebar-top">
-          <button className="brand-link" type="button" onClick={() => { onNavigate('Overview'); onClose() }} aria-label="Botify overview">
+          <button className="brand-link" type="button" onClick={() => { onNavigate('Overview'); onClose() }} aria-label="TradeRelayCity overview">
             <BotifyMark />
             <span className="brand-edition">TRADING DESK <i /></span>
           </button>
@@ -118,14 +118,98 @@ function SectionPreview({ active }: { active: string }) {
 }
 
 function App() {
+  const [authState, setAuthState] = useState<'checking' | 'local' | 'signed-in' | 'signed-out'>('checking')
+  const finishSignIn = useCallback(() => {
+    setAuthState('signed-in')
+    if (window.location.pathname === '/enroll') window.history.replaceState({}, '', '/')
+  }, [])
+  const localHost = ['localhost', '127.0.0.1', '::1'].includes(window.location.hostname)
+  useEffect(() => {
+    if (localHost) { setAuthState('local'); return }
+    let cancelled = false
+    void import('./auth-client').then(({ authClient }) => authClient.getSession()).then((result) => {
+      if (!cancelled) setAuthState(result.data?.user ? 'signed-in' : 'signed-out')
+    }).catch(() => { if (!cancelled) setAuthState('signed-out') })
+    return () => { cancelled = true }
+  }, [localHost])
+
   const [active, setActive] = useState('Overview')
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [range, setRange] = useState('1W')
   const [accountOpen, setAccountOpen] = useState(false)
+  const [users, setUsers] = useState<SimUser[]>([])
+  const [userId, setUserId] = useState('sim-owner')
+  const [account, setAccount] = useState<SimAccount | null>(null)
+  const [apiError, setApiError] = useState('')
+  const [aiMessage, setAiMessage] = useState('Mock AI is idle; live AI is not configured.')
+  const [aiBusy, setAiBusy] = useState(false)
+  const dashboardRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const headers = { 'x-simulation-user': userId }
+    let cancelled = false
+    async function loadSimulation() {
+      try {
+        const [sessionResponse, accountsResponse] = await Promise.all([
+          fetch('/api/simulation/session', { headers }),
+          fetch('/api/simulation/accounts', { headers }),
+        ])
+        if (!sessionResponse.ok || !accountsResponse.ok) throw new Error('Local simulation API is unavailable. Start it with npm run dev.')
+        const session = await sessionResponse.json() as { users: SimUser[] }
+        const accountList = await accountsResponse.json() as { accounts: { id: string }[] }
+        const accountId = accountList.accounts[0]?.id
+        if (!accountId) throw new Error('No simulation account is available for this persona.')
+        const overviewResponse = await fetch(`/api/simulation/accounts/${accountId}/overview`, { headers })
+        if (!overviewResponse.ok) throw new Error('The selected simulation account could not be loaded.')
+        const overview = await overviewResponse.json() as SimAccount
+        if (!cancelled) { setUsers(session.users); setAccount(overview); setApiError('') }
+      } catch (error) {
+        if (!cancelled) setApiError(error instanceof Error ? error.message : 'Simulation API request failed.')
+      }
+    }
+    void loadSimulation()
+    return () => { cancelled = true }
+  }, [userId])
+
+  useGSAP(() => {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+    gsap.from('.metric-card', { opacity: 0, y: 12, duration: 0.48, stagger: 0.075, ease: 'power2.out' })
+  }, { scope: dashboardRef, dependencies: [account?.id], revertOnUpdate: true })
+
+  const formatMoney = (value: number) => new Intl.NumberFormat('en-US', { style: 'currency', currency: account?.balance.currency ?? 'USD' }).format(value)
+  const positions = account?.positions.map((position) => ({
+    symbol: position.symbol,
+    detail: position.description,
+    side: position.side === 'BUY' ? 'Buy' : 'Sell',
+    size: position.volume.toFixed(2),
+    entry: position.entry.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 5 }),
+    last: position.market.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 5 }),
+    pnl: `${position.pnl >= 0 ? '+' : '−'}${Math.abs(position.pnl).toFixed(2)}`,
+    state: position.pnl >= 0 ? 'positive' : 'negative',
+  })) ?? []
+
+  async function requestMockReview() {
+    setAiBusy(true)
+    try {
+      const response = await fetch('/api/simulation/ai/decision', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'x-simulation-user': userId },
+        body: JSON.stringify({ snapshotId: `ui-${Date.now()}`, candidate: null }),
+      })
+      const result = await response.json() as { decision?: string; rationale?: string; usage?: { requestCount: number; userLimit: number }; error?: string }
+      if (!response.ok) throw new Error(result.error ?? 'Mock AI request failed.')
+      setAiMessage(`${result.decision}: ${result.rationale} (${result.usage?.requestCount}/${result.usage?.userLimit} daily requests)`)
+    } catch (error) {
+      setAiMessage(error instanceof Error ? error.message : 'Mock AI is unavailable.')
+    } finally { setAiBusy(false) }
+  }
+
+  if (window.location.pathname === '/enroll' || authState === 'signed-out') return <AuthGate onSignedIn={finishSignIn} />
+  if (authState === 'checking') return <main className="auth-screen"><div className="auth-card">Loading secure session…</div></main>
 
   return (
     <LazyMotion features={domAnimation}>
-    <div className="app-shell">
+    <div className="app-shell" ref={dashboardRef}>
       <Sidebar active={active} onNavigate={setActive} open={drawerOpen} onClose={() => setDrawerOpen(false)} />
       <main className="main-area">
         <header className="topbar">
@@ -133,16 +217,16 @@ function App() {
           <div className="topbar-account">
             <button className="account-switcher" type="button" aria-expanded={accountOpen} onClick={() => setAccountOpen((value) => !value)}>
               <span className="account-avatar"><Command size={16} /></span>
-              <span className="account-labels"><strong>Primary demo account</strong><small>Preview workspace</small></span>
+              <span className="account-labels"><strong>{account?.label ?? 'Loading simulation…'}</strong><small>{account?.broker ?? 'Local simulation'}</small></span>
               <ChevronDown size={16} className={accountOpen ? 'chevron-open' : ''} />
             </button>
             <AnimatePresence>
               {accountOpen && <m.div className="account-menu" initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 5 }}>
-                <strong>Preview account</strong><span>No MT5 account is connected.</span><button type="button" onClick={() => setAccountOpen(false)}>Close</button>
+                <strong>Choose simulation persona</strong>{users.map((user) => <button className="persona-option" type="button" key={user.id} onClick={() => { setUserId(user.id); setAccountOpen(false) }}>{user.name}{user.id === userId ? ' · selected' : ''}</button>)}<span>Each persona has an isolated simulated account.</span>
               </m.div>}
             </AnimatePresence>
           </div>
-          <div className="topbar-state"><span className="mode-badge"><span />DEMO</span><span className="state-divider" /><span className="connection-dot" /><span className="connection-copy">Preview · not connected</span></div>
+          <div className="topbar-state"><span className="mode-badge"><span />SIMULATED</span><span className="state-divider" /><span className={`connection-dot${account?.connected ? ' connection-dot--online' : ''}`} /><span className="connection-copy">{account?.connected ? 'Connector demo fixture' : 'Connector offline'}</span></div>
           <div className="topbar-actions">
             <span className="topbar-date">SATURDAY <b>·</b> NOV 07</span>
             <button className="icon-button unavailable-control" type="button" disabled aria-label="Notifications unavailable in preview" title="Notifications need the application backend"><Bell size={18} /><i /></button>
@@ -154,20 +238,20 @@ function App() {
           {active === 'Overview' ? <>
             <div className="page-intro">
               <div><div className="overline"><span className="overline-line" />YOUR MARKET DESK</div><h1>Overview<span className="title-period">.</span></h1><p className="page-subtitle">A clear view of your account, strategies, and risk.</p></div>
-              <div className="preview-stamp"><Sparkles size={14} /><span>VISUAL PREVIEW</span><span className="stamp-divider" /><time>07 NOV 2026</time></div>
+              <div className="preview-stamp"><Sparkles size={14} /><span>LOCAL SIMULATION</span><span className="stamp-divider" /><time>07 NOV 2026</time></div>
             </div>
 
-            <div className="preview-banner" role="note">
+            <div className={`preview-banner${apiError ? ' preview-banner--error' : ''}`} role={apiError ? 'alert' : 'note'}>
               <div className="banner-icon"><SlidersHorizontal size={16} /></div>
-              <p><strong>Preview mode.</strong> All figures and chart data are illustrative. No broker connection or trading actions are active.</p>
+              <p><strong>{apiError ? 'Simulation unavailable.' : 'Simulation mode.'}</strong> {apiError || 'Fixture accounts and positions from the local API. No broker orders are placed; live mode is off.'}</p>
               <span className="banner-end" aria-hidden="true" />
             </div>
 
-            <section className="metrics-grid" aria-label="Account metrics, illustrative values">
-              <MetricCard label="Balance" value="$24,580.00" caption="Account currency · USD" icon={WalletCards} tone="blue" />
-              <MetricCard label="Equity" value="$24,764.32" caption="Includes open position P&L" icon={ChartNoAxesCombined} tone="navy" />
-              <MetricCard label="Today's realized P&L" value="+$184.32" caption="Illustrative daily result" icon={TrendingUp} tone="red" change="up" />
-              <MetricCard label="Open positions" value="03" caption="Sample rows · not live" icon={BriefcaseBusiness} tone="cream" />
+            <section className="metrics-grid" aria-label="Simulated account metrics">
+              <MetricCard label="Balance" value={account ? formatMoney(account.balance.amount) : '—'} caption="Simulation currency · USD" icon={WalletCards} tone="blue" />
+              <MetricCard label="Equity" value={account ? formatMoney(account.equity) : '—'} caption="Includes simulated open P&L" icon={ChartNoAxesCombined} tone="navy" />
+              <MetricCard label="Today's P&L" value={account ? `${account.dailyPnl >= 0 ? '+' : '−'}${formatMoney(Math.abs(account.dailyPnl))}` : '—'} caption="Simulated daily result" icon={TrendingUp} tone="red" change={account?.dailyPnl === undefined ? undefined : account.dailyPnl >= 0 ? 'up' : 'down'} />
+              <MetricCard label="Open positions" value={String(account?.positions.length ?? 0).padStart(2, '0')} caption="Simulated positions" icon={BriefcaseBusiness} tone="cream" />
             </section>
 
             <div className="dashboard-grid">
@@ -175,29 +259,30 @@ function App() {
               <section className="panel risk-panel" aria-labelledby="risk-heading">
                 <div className="panel-heading">
                   <div><span className="eyebrow">CONTROL ROOM <span className="eyebrow-dot eyebrow-dot--red" /></span><h2 className="panel-title" id="risk-heading">Strategy & risk</h2></div>
-                  <span className="neutral-badge"><span />PREVIEW</span>
+                  <span className="neutral-badge"><span />SIMULATED</span>
                 </div>
                 <div className="connection-card">
                   <div className="connection-emblem"><span className="connection-ring"><Command size={22} /></span><span className="connection-x">×</span></div>
-                  <div className="connection-text"><strong>No live connection</strong><span>Broker and strategy services are not configured.</span></div>
+                  <div className="connection-text"><strong>{account?.connected ? 'Simulation connector online' : 'Simulation connector offline'}</strong><span>All account activity remains local fixture data.</span></div>
                 </div>
                 <div className="risk-stats">
-                  <div className="risk-stat"><span className="risk-stat-icon"><Bot size={16} /></span><span>Active strategies</span><strong>—</strong></div>
-                  <div className="risk-stat"><span className="risk-stat-icon"><Gauge size={16} /></span><span>Risk policy</span><strong className="risk-value-muted">Not set</strong></div>
+                  <div className="risk-stat"><span className="risk-stat-icon"><Bot size={16} /></span><span>AI decision</span><strong>{account?.latestDecision?.decision ?? 'HOLD'}</strong></div>
+                  <div className="risk-stat"><span className="risk-stat-icon"><Gauge size={16} /></span><span>Execution mode</span><strong className="risk-value-muted">Simulation only</strong></div>
                   <div className="risk-stat"><span className="risk-stat-icon"><Clock3 size={16} /></span><span>Last update</span><strong className="risk-value-muted">—</strong></div>
                 </div>
-                <button className="risk-link" type="button" disabled title="Risk settings need the application backend">Risk settings <PanelLeftClose size={15} /></button>
+                <button className="risk-link" type="button" onClick={() => void requestMockReview()} disabled={aiBusy || Boolean(apiError)} aria-describedby="mock-ai-status">{aiBusy ? 'Reviewing…' : 'Run mock AI review'} <Sparkles size={15} /></button>
+                <p className="mock-ai-status" id="mock-ai-status" aria-live="polite">{aiMessage}</p>
               </section>
             </div>
 
             <div className="lower-grid">
               <section className="panel positions-panel" aria-labelledby="positions-heading">
                 <div className="panel-heading panel-heading--table">
-                  <div><span className="eyebrow">ACCOUNT ACTIVITY</span><h2 className="panel-title" id="positions-heading">Open positions <span className="count-chip">03</span></h2></div>
+                  <div><span className="eyebrow">ACCOUNT ACTIVITY</span><h2 className="panel-title" id="positions-heading">Open positions <span className="count-chip">{positions.length.toString().padStart(2, '0')}</span></h2></div>
                   <button className="text-link" type="button" disabled title="Position actions need a connected account">View all <ArrowUpRight size={15} /></button>
                 </div>
-                <div className="table-preview-label"><span className="sample-dot" />Sample data · illustrative only</div>
-                <div className="table-scroll" role="region" aria-label="Illustrative open positions" tabIndex={0}>
+                <div className="table-preview-label"><span className="sample-dot" />Synthetic simulation fixtures</div>
+                <div className="table-scroll" role="region" aria-label="Simulated open positions" tabIndex={0}>
                   <table>
                     <thead><tr><th scope="col">Instrument</th><th scope="col">Side</th><th scope="col">Size</th><th scope="col">Entry</th><th scope="col">Market</th><th scope="col" className="align-right">Unrealized P&L</th></tr></thead>
                     <tbody>{positions.map((item) => <tr key={item.symbol}>
@@ -212,18 +297,18 @@ function App() {
 
               <section className="panel activity-panel" aria-labelledby="activity-heading">
                 <div className="panel-heading"><div><span className="eyebrow">THE LOGBOOK</span><h2 className="panel-title" id="activity-heading">Recent activity</h2></div><button className="icon-button more-control" type="button" disabled aria-label="Activity options unavailable"><MoreHorizontal size={19} /></button></div>
-                <div className="activity-list">{activities.map(({ title, detail, icon: Icon, tone }) => <article className="activity-item" key={title}>
+                <div className="activity-list">{(account?.events.length ? account.events.map((event, index) => ({ title: event.message, detail: 'Local simulation · just now', icon: index ? ShieldCheck : Activity, tone: index ? 'cream' : 'blue' })) : activities).map(({ title, detail, icon: Icon, tone }) => <article className="activity-item" key={title}>
                   <span className={`activity-icon activity-icon--${tone}`}><Icon size={15} /></span><div><strong>{title}</strong><span>{detail}</span></div>
                 </article>)}</div>
                 <div className="activity-footer"><span className="footer-rule" /><span>END OF SAMPLE LOG</span><span className="footer-rule" /></div>
               </section>
             </div>
 
-            <footer className="page-footer"><span><span className="footer-mark"><BotifyMark compact /></span>BOTIFY TRADING DESK</span><span>FRONTEND PREVIEW <i /> NO LIVE DATA</span><span>Built for clarity.</span></footer>
+            <footer className="page-footer"><span><span className="footer-mark"><BotifyMark compact /></span>TRADERELAYCITY</span><span>SIMULATION <i /> LIVE MODE DISABLED</span><span>Built for clarity.</span></footer>
           </> : <>
-            <div className="page-intro page-intro--simple"><div><div className="overline"><span className="overline-line" />WORKSPACE</div><h1>{active}<span className="title-period">.</span></h1><p className="page-subtitle">Botify account workspace preview.</p></div><div className="preview-stamp"><span>VISUAL PREVIEW</span><span className="stamp-divider" /><time>07 NOV 2026</time></div></div>
+            <div className="page-intro page-intro--simple"><div><div className="overline"><span className="overline-line" />WORKSPACE</div><h1>{active}<span className="title-period">.</span></h1><p className="page-subtitle">TradeRelayCity simulation workspace.</p></div><div className="preview-stamp"><span>SIMULATED</span><span className="stamp-divider" /><time>07 NOV 2026</time></div></div>
             <SectionPreview active={active} />
-            <footer className="page-footer"><span><span className="footer-mark"><BotifyMark compact /></span>BOTIFY TRADING DESK</span><span>FRONTEND PREVIEW <i /> NO LIVE DATA</span><span>Built for clarity.</span></footer>
+            <footer className="page-footer"><span><span className="footer-mark"><BotifyMark compact /></span>TRADERELAYCITY</span><span>SIMULATION <i /> LIVE MODE DISABLED</span><span>Built for clarity.</span></footer>
           </>}
         </div>
       </main>

@@ -1,8 +1,8 @@
-# Botify Design System
+# TradeRelayCity Design System
 
 ## 1. Atmosphere & Identity
 
-Botify feels like a modern ballpark control room: confident, legible, and lively at the edges while the trading workspace stays calm. The signature is an original B-shaped candlestick mark, paired with vivid electric-blue score bands and crisp red identity strokes over a warm ivory field. This is an original sports-inspired identity and is not affiliated with or endorsed by MLB.
+TradeRelayCity feels like a modern ballpark control room: confident, legible, and lively at the edges while the trading workspace stays calm. The signature is an original open-city/candlestick mark, paired with vivid electric-blue score bands and bright red identity strokes over a warm ivory field. The identity is sports-inspired and original, with no MLB logo or claim of affiliation.
 
 ## 2. Color
 
@@ -10,14 +10,15 @@ Botify feels like a modern ballpark control room: confident, legible, and lively
 
 | Role | Token | Value | Usage |
 |---|---|---:|---|
-| Brand/navy | `--navy-950` | `#091B35` | Sidebar, primary text, dark controls |
-| Brand/navy raised | `--navy-800` | `#17345B` | Sidebar hover, secondary dark surfaces |
-| Brand blue | `--blue-600` | `#155EEF` | Primary actions, active navigation, chart |
-| Brand blue hover | `--blue-700` | `#124BC2` | Primary action hover |
-| Brand red | `--red-600` | `#D51F3F` | Brand rule, active trim, limited emphasis |
+| Brand/navy | `--navy-950` | `#041E42` | Sidebar, primary text, dark controls |
+| Brand/navy raised | `--navy-800` | `#0A3470` | Sidebar hover, secondary dark surfaces |
+| Brand blue | `--blue-600` | `#2169F3` | Primary actions, active navigation, chart |
+| Brand blue hover | `--blue-700` | `#1553D5` | Primary action hover |
+| Brand burgundy | `--brand-burgundy` | `#77001D` | Restrained brand rule and identity details |
+| Brand red | `--red-400` | `#FF4268` | Bright logo detail, separate from semantic loss color |
 | Canvas | `--canvas` | `#F8F6F0` | Main page background |
 | Surface | `--surface` | `#FFFFFF` | Panels, tables, menus |
-| Cream | `--cream-100` | `#FFF8E8` | Identity details, quiet highlight |
+| Cream | `--cream-100` | `#CDC3A8` | Identity details, quiet highlight |
 | Text primary | `--text` | `#11223A` | Primary copy and numbers |
 | Text muted | `--text-muted` | `#5E6B7D` | Supporting copy and labels |
 | Border | `--border` | `#DFE4EC` | Panel and control boundaries |
@@ -26,7 +27,7 @@ Botify feels like a modern ballpark control room: confident, legible, and lively
 | Warning | `--warning` | `#8A5200` | Stale, paused, or caution states |
 | Focus | `--focus` | `#155EEF` | Visible keyboard outline on light surfaces |
 
-Brand red is not a semantic loss color. Preview/sample information is always identified in text, not by color alone. Dark navigation uses white text and cream/blue focus rings. Interactive controls have visible boundaries.
+Brand red and burgundy are not semantic loss colors. Simulation/sample information is always identified in text, not by color alone. Dark navigation uses white text and cream/blue focus rings. Interactive controls have visible boundaries.
 
 ## 3. Typography
 
@@ -49,7 +50,7 @@ Use a 4px base: 4, 8, 12, 16, 20, 24, 32, 40, 48, 64 and 80px. The desktop shell
 ## 5. Components
 
 ### App shell and sidebar
-- **Structure:** navigation landmark, original Botify emblem, grouped links, account/security footer; sticky top bar in workspace.
+- **Structure:** navigation landmark, original TradeRelayCity candlestick emblem, grouped links, account/security footer; sticky top bar in workspace.
 - **Variants:** expanded desktop rail; mobile/tablet overlay drawer.
 - **States:** current, hover, focus-visible, drawer open/closed.
 - **Accessibility:** real links/buttons, `aria-current="page"`, labeled menu button, Escape closes the drawer, focus returns to trigger.
