@@ -1,115 +1,70 @@
-# TradeRelayCity Design System
+﻿# TradeRelayCity Design System
 
 ## 1. Atmosphere & Identity
-
-TradeRelayCity feels like a modern ballpark control room: confident, legible, and lively at the edges while the trading workspace stays calm. The signature is an original open-city/candlestick mark, paired with vivid electric-blue score bands and bright red identity strokes over a warm ivory field. The identity is sports-inspired and original, with no MLB logo or claim of affiliation.
+TradeRelayCity is a focused market control room. Its visual signature is a neutral charcoal dark canvas, floating navigation capsule, warm cream featured metrics, and an alternating burgundy feature surface. The warm light theme uses the same brand colors on a paper-like off-white canvas. The identity is original and makes no MLB affiliation claim.
 
 ## 2. Color
 
-### Palette
-
 | Role | Token | Value | Usage |
-|---|---|---:|---|
-| Brand/navy | `--navy-950` | `#041E42` | Sidebar, primary text, dark controls |
-| Brand/navy raised | `--navy-800` | `#0A3470` | Sidebar hover, secondary dark surfaces |
-| Brand blue | `--blue-600` | `#2169F3` | Primary actions, active navigation, chart |
-| Brand blue hover | `--blue-700` | `#1553D5` | Primary action hover |
-| Brand burgundy | `--brand-burgundy` | `#77001D` | Restrained brand rule and identity details |
-| Brand red | `--red-400` | `#FF4268` | Bright logo detail, separate from semantic loss color |
-| Canvas | `--canvas` | `#F8F6F0` | Main page background |
-| Surface | `--surface` | `#FFFFFF` | Panels, tables, menus |
-| Cream | `--cream-100` | `#CDC3A8` | Identity details, quiet highlight |
-| Text primary | `--text` | `#11223A` | Primary copy and numbers |
-| Text muted | `--text-muted` | `#5E6B7D` | Supporting copy and labels |
-| Border | `--border` | `#DFE4EC` | Panel and control boundaries |
-| Positive | `--positive` | `#146C43` | Positive example values and confirmations |
-| Negative | `--negative` | `#B42318` | Losses, errors, destructive actions |
-| Warning | `--warning` | `#8A5200` | Stale, paused, or caution states |
-| Focus | `--focus` | `#155EEF` | Visible keyboard outline on light surfaces |
+|---|---|---|---|
+| Brand navy | `--navy-950` | `#041E42` | Identity and light-theme text |
+| Dark canvas | `--canvas` | `#1F2024` | Neutral charcoal app background in dark mode |
+| Raised navy | `--navy-800` | `#0B2A50` | Dark-theme cards |
+| Nested navy | `--navy-700` | `#12365D` | Dark-theme nested surfaces |
+| Brand burgundy | `--brand-burgundy` | `#77001D` | Feature card, identity details |
+| Brand cream | `--cream-100` | `#CDC3A8` | Featured metric, active tab, chart highlight |
+| Off-white | `--off-white` | `#F7F5F0` | Dark-theme primary text, light canvas |
+| Light muted | `--light-muted` | `#526174` | Text on cream/white surfaces |
+| Dark muted | `--dark-muted` | `#A9B6C6` | Supporting text on navy |
+| Positive light/dark | `--positive-light` / `--positive-dark` | `#146C43` / `#6FCF97` | Positive values by theme |
+| Negative light/dark | `--negative-light` / `--negative-dark` | `#B42318` / `#FF8A84` | Losses and errors by theme |
+| Warning light/dark | `--warning-light` / `--warning-dark` | `#8A5200` / `#F1C36E` | Warnings by theme |
 
-Brand red and burgundy are not semantic loss colors. Simulation/sample information is always identified in text, not by color alone. Dark navigation uses white text and cream/blue focus rings. Interactive controls have visible boundaries.
+Dark supporting surfaces use `#0B2A50` and `#12365D`; subtle navy borders use cream at 16%. The light canvas is `#F7F5F0`, panels are white, and supporting text is `#526174`. Burgundy is not a loss indicator. Mode and connector state are separate.
 
 ## 3. Typography
-
-Use Bebas Neue for the wordmark, page title, short panel titles and score-band labels. Use Roboto for body copy, forms and navigation. Both are loaded from the supplied Google Fonts stylesheet with system fallbacks. Numeric data uses tabular lining figures. Maximum two font families; no body copy below 14px.
+Self-host Inter Variable for all interface text, headings, controls, tables and financial metrics. Self-host JetBrains Mono for technical IDs, timestamps and compact diagnostic values only. Financial values use tabular numerals and may wrap or scale. No remote font service is required.
 
 | Level | Size / line height | Weight | Usage |
 |---|---:|---:|---|
-| Display | 44 / 48px | 700 | Landing or product identity |
-| Page title | 36 / 40px desktop; 28 / 32px mobile | 700 | Current page |
-| Section title | 20 / 26px | 700 | Panel headings |
-| Metric | 30 / 36px desktop; 26 / 32px mobile | 700 | Financial values |
-| Body | 15 / 23px | 400 | Main interface copy |
-| Table | 14 / 20px | 450 | Dense values and rows |
-| Metadata | 12 / 18px | 600 | Status, helper labels |
+| Overview display | Fluid 48–128 desktop / 48–76 tablet; 40–48 phone | 800 | Three-line overview headline, -0.05em tracking |
+| Page title | 32–40 / 1.1 | 700 | Working pages |
+| Section title | 20–24 / 1.25 | 600–700 | Panels |
+| Metric | 64 / 1.0 featured; 42 / 1.1 secondary | 600–700 | Financial metrics |
+| Body | 16 / 1.6 | 400 | Main copy |
+| Controls and table | 14 / 1.4 | 400–600 | Interactive and dense data |
+| Metadata | 12 / 1.5 | 500–600 | Labels and status |
 
 ## 4. Spacing & Layout
-
-Use a 4px base: 4, 8, 12, 16, 20, 24, 32, 40, 48, 64 and 80px. The desktop shell has a 248px fixed sidebar and a flexible workspace with 32px padding, a 12-column grid and 20px gaps; content max width is 1600px. At 1024–1279px use 24px page padding and a 220px sidebar. Below 1024px the sidebar becomes an overlay drawer. Below 640px use 16px page padding and stack all dashboard panels; tables scroll within their own region. Keep controls usable at 320 CSS px and allow zoom/reflow.
+Use a 4px base scale. Use the full available desktop width with fluid 4vw side gutters (clamped between 24px and 72px) and a 12-column grid with 24px gaps. At tablet widths use 24px gutters; at phone widths use 16px. The floating navigation sits centered 40px from the desktop top edge. The overview uses an 8/4 hero split and a 7/5 chart/feature split. Stack panels when they no longer fit. Outer cards use 32px rounding and padding; nested charts use 20px rounding. Controls have at least 44px targets. Tables scroll inside a labeled region. Prevent page-level horizontal overflow at 320px.
 
 ## 5. Components
 
-### App shell and sidebar
-- **Structure:** navigation landmark, original TradeRelayCity candlestick emblem, grouped links, account/security footer; sticky top bar in workspace.
-- **Variants:** expanded desktop rail; mobile/tablet overlay drawer.
-- **States:** current, hover, focus-visible, drawer open/closed.
-- **Accessibility:** real links/buttons, `aria-current="page"`, labeled menu button, Escape closes the drawer, focus returns to trigger.
-- **Motion:** drawer opacity and horizontal transform, 220ms; respect reduced motion.
+### App shell and floating navigation
+- Centered pill with Overview, Trading, History, Assistant; a labeled More menu preserves every secondary route.
+- Account selector, SIMULATED/DEMO/LIVE mode, connector health, last-update context and theme toggle remain visible together.
+- Current, hover, focus-visible, menu-open and theme states are distinct. Mode, connector health and strategy state never share one indicator.
+- Buttons expose `aria-current`; menu and theme controls are keyboard operable and clearly named.
 
-### Account and mode bar
-- **Structure:** account selector, DEMO/LIVE text badge, preview connection status, notification and profile controls.
-- **States:** preview, selected menu item, open menu, focus; LIVE remains a distinct mode from connection health.
-- **Accessibility:** named buttons, menu keyboard support, status includes visible text.
-- **Motion:** menu opacity/transform, 160ms.
+### Theme system
+- Dark navy is the default. Light uses warm off-white and the same brand accents. Persist selection locally and apply it to auth, overview, history, assistant and shared surfaces.
+- Both themes provide visible focus and readable positive, negative, warning, stale, offline, pending, loading, empty, denied, success and error states.
 
-### Preview banner and status badge
-- **Structure:** icon, concise heading, plain language explanation; text badge plus icon.
-- **Variants:** informational preview, connected, offline, stale, paused, pending, error.
-- **Accessibility:** status is not conveyed with color alone; sample data is explicitly labeled.
-- **Motion:** no looping/pulsing; short opacity entrance only.
+### Metric, chart and feature cards
+- Featured metric surface is cream with navy text. Feature surface is burgundy with off-white text. Dark operational cards use raised navy.
+- Use real account-scoped values only. Missing values display an em dash and explanation. Simulated fixtures are explicitly labeled and separate from broker data.
+- Charts label period, currency and units and provide an accessible text alternative.
 
-### Metric panel
-- **Structure:** label, value, currency/unit, period context, illustrative marker.
-- **States:** default, positive, negative, unavailable (`—`), stale.
-- **Accessibility:** label/value relationship is read in order; signs accompany semantic color; tabular numerals.
-- **Motion:** opacity and small transform on initial entry; no count-up of financial values.
+### Forms, tables, assistant and dialogs
+- Use shared themed surfaces, visible validation, 56px table rows, aligned columns, 14px content, compact pill filters and readable assistant message widths.
+- Preserve existing confirmation and approval flows for consequential controls.
 
-### Chart panel
-- **Structure:** title, selected range controls, SVG plot, readable axes, text description and sample-data caption.
-- **States:** selected range, focus, unavailable; preview data only.
-- **Accessibility:** keyboard buttons, `aria-pressed`, chart summary, SVG marked decorative when summary provides equivalent context.
-- **Motion:** GSAP draws the line once on first mount; disabled for reduced motion. Do not animate live ticks.
-
-### Positions table and activity list
-- **Structure:** panel title and sample label, semantic table/list, clear columns and empty state.
-- **States:** rows, empty, unavailable, horizontally scrollable table at narrow widths.
-- **Accessibility:** table headers, numeric alignment, visible focus for row links, sign and semantic color for P&L.
-- **Motion:** short opacity entrance; no feed auto-scroll.
-
-### Trade history and evidence drawer
-- **Structure:** persistent account/environment stamp, SIMULATED fixture banner, separate Executed trades and Attempts/blocks tabs, filter panel, bounded table, and a right-side evidence drawer.
-- **Data hierarchy:** outcome/status leads; symbol, side, volume and timestamps identify the record; gross P&L, individual charges and net P&L stay separate. Confirmed facts, supported observations and hypotheses use separate headings. The active account currency is explicit, and mixed currencies are never combined.
-- **States:** loading, offline/unavailable, filtered empty, list rows, outcome badges, drawer loading/error, unavailable price/chart/evidence, and no-lessons state.
-- **Accessibility:** semantic table headers, tab roles and selected state, labeled filters, visible focus, 44px controls, scrollable table region on narrow layouts, dialog name/modal state, Escape and backdrop close, and text labels in addition to semantic colors.
-- **Motion:** short drawer opacity/transform entrance only; no animated financial values; remove nonessential motion under reduced-motion preference.
-- **Color:** reuse `--positive`/`--positive-bg`, `--negative`/`--negative-bg`, `--warning`, `--blue-100`, `--surface`, `--canvas`, `--border`, and text tokens. Brand red remains separate from loss semantics.
-
-### Button and icon control
-- **Variants:** primary, secondary, quiet, destructive; icon-only only when named.
-- **States:** default, hover, pressed, focus-visible, disabled, unavailable with explanatory text.
-- **Accessibility:** 44px minimum touch target, semantic elements, visible focus.
-- **Motion:** color and transform only, 140ms; respect reduced motion.
-
-### Empty/preview destination
-- **Structure:** icon, destination heading, explanation that backend behavior is not connected.
-- **States:** section preview, empty, unavailable.
-- **Accessibility:** clear heading order and no fake success messages.
-- **Motion:** 180ms opacity and small transform.
+### Buttons, tabs and states
+- Pill controls use at least 44px interactive targets with visible focus, hover, pressed, disabled, pending and error states.
+- Empty and unavailable states explain the actual backend limitation. Do not show fake working actions or results.
 
 ## 6. Motion & Interaction
+Use existing Motion and GSAP patterns. Transitions are short and state-based; financial values never count up or imply order success. Respect reduced motion. Do not delay acknowledgements or conceal stale data.
 
-Use Motion for React (`motion` package, imported from `motion/react`) for UI presence, menu, drawer and hover/tap transitions. Use GSAP only for the chart’s one-time SVG line reveal. Micro motion is 120–160ms, panel/menu motion 180–220ms, and initial content reveal 360–480ms. Animate transform and opacity; no layout animation on data surfaces, no pulsing prices or celebratory effects. Use `prefers-reduced-motion` to remove nonessential movement and show the finished chart immediately.
-
-## 7. Depth & Surface
-
-Use a restrained mixed strategy: fine cool borders for structure and soft short shadows (`0 8px 24px rgba(9, 27, 53, 0.06)`) for primary panels and menus only. The sidebar is a quiet navy surface with a subtle vertical tonal shift; the workspace remains warm and mostly flat. Avoid glass effects and layered cards.
+## 7. Depth & Texture
+Use a faint non-interactive dot texture and restrained ambient tonal shifts over navy, never behind dense text. Separate panels with subtle borders and short shadows. Retain quiet chart axes, thin lines, round-ended bars and cream highlights. Burgundy remains a brand treatment, not a semantic loss color.

@@ -1,12 +1,12 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+﻿import { useCallback, useEffect, useRef, useState } from 'react'
 import { AnimatePresence, LazyMotion, domAnimation, m } from 'motion/react'
 import { useGSAP } from '@gsap/react'
 import gsap from 'gsap'
 import {
-  Activity, ArrowDownRight, ArrowUpRight, Bell, Bot, BriefcaseBusiness,
-  ChartNoAxesCombined, ChevronDown, CircleHelp, Clock3, Command, FlaskConical,
-  Gauge, LayoutDashboard, Menu, MessageCircle, MoreHorizontal,
-  ShieldCheck, SlidersHorizontal, Sparkles, TrendingUp, WalletCards, X,
+  Activity, ArrowUpRight, Bell, Bot, BriefcaseBusiness, Check,
+  ChevronDown, CircleHelp, Clock3, Command, FlaskConical,
+  Gauge, LayoutDashboard, Menu, MessageCircle, MoreHorizontal, Moon, Sun,
+  ShieldCheck, SlidersHorizontal, Sparkles, WalletCards, X,
 } from 'lucide-react'
 import { BotifyMark } from './components/BotifyMark'
 import { ScoreboardChart } from './components/ScoreboardChart'
@@ -30,33 +30,44 @@ const navItems = [
 ]
 
 const activities = [
-  { title: 'Account snapshot refreshed', detail: 'Illustrative preview · just now', icon: Activity, tone: 'blue' },
-  { title: 'Risk profile reviewed', detail: 'Preview state · 18 min ago', icon: ShieldCheck, tone: 'cream' },
-  { title: 'Strategy workspace opened', detail: 'No broker connection · 42 min ago', icon: Bot, tone: 'red' },
+  { title: 'Account snapshot refreshed', detail: 'Illustrative preview Â· just now', icon: Activity, tone: 'blue' },
+  { title: 'Risk profile reviewed', detail: 'Preview state Â· 18 min ago', icon: ShieldCheck, tone: 'cream' },
+  { title: 'Strategy workspace opened', detail: 'No broker connection Â· 42 min ago', icon: Bot, tone: 'red' },
 ]
 
 function Sidebar({ active, onNavigate, open, onClose }: { active: string; onNavigate: (name: string) => void; open: boolean; onClose: () => void }) {
+  const [moreOpen, setMoreOpen] = useState(false)
+  const primaryItems = [
+    { label: 'Overview', icon: LayoutDashboard, destination: 'Overview' },
+    { label: 'Trading', icon: Bot, destination: 'Bots & Strategies' },
+    { label: 'History', icon: Activity, destination: 'Trade History' },
+    { label: 'Assistant', icon: MessageCircle, destination: 'Assistant' },
+  ]
+  const secondaryItems = navItems.filter(({ label }) => !['Overview', 'Trade History', 'Assistant'].includes(label))
   return (
     <>
       <AnimatePresence>
         {open && <m.button className="drawer-scrim" aria-label="Close navigation" onClick={onClose} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} />}
       </AnimatePresence>
-      <m.aside className={`sidebar${open ? ' sidebar--open' : ''}`} aria-label="Main navigation" initial={false} animate={{ x: open || window.innerWidth >= 1024 ? 0 : -272 }} transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}>
+      <aside className={`sidebar${open ? ' sidebar--open' : ''}`} aria-label="Main navigation">
         <div className="sidebar-top">
           <button className="brand-link" type="button" onClick={() => { onNavigate('Overview'); onClose() }} aria-label="TradeRelayCity overview">
             <BotifyMark />
-            <span className="brand-edition">TRADING DESK <i /></span>
+            <span className="brand-name">TradeRelayCity</span>
           </button>
           <button className="mobile-close icon-button" type="button" onClick={onClose} aria-label="Close navigation"><X size={19} /></button>
         </div>
 
-        <div className="workspace-label">WORKSPACE <span>01</span></div>
         <nav className="primary-nav">
-          {navItems.map(({ label, icon: Icon }, index) => (
-            <button key={label} type="button" className={`nav-item${active === label ? ' nav-item--active' : ''}${index === 1 || index === 6 ? ' nav-item--break' : ''}`} aria-current={active === label ? 'page' : undefined} onClick={() => { onNavigate(label); onClose() }}>
-              <Icon size={18} strokeWidth={1.8} /><span>{label}</span>{label === 'Notifications' && <span className="nav-count">2</span>}
+          {primaryItems.map(({ label, destination, icon: Icon }) => (
+            <button key={label} type="button" className={`nav-item${active === destination ? ' nav-item--active' : ''}`} aria-label={label} aria-current={active === destination ? 'page' : undefined} onClick={() => { onNavigate(destination); onClose() }}>
+              <Icon size={17} strokeWidth={1.8} /><span>{label}</span>
             </button>
           ))}
+          <div className="nav-more-wrap">
+            <button className={`nav-item nav-more-trigger${moreOpen ? ' nav-item--active' : ''}`} type="button" aria-label="More destinations" aria-expanded={moreOpen} aria-haspopup="menu" onClick={() => setMoreOpen((value) => !value)}><MoreHorizontal size={18} /><span>More</span><ChevronDown size={15} /></button>
+            {moreOpen && <div className="nav-more-menu" role="menu" aria-label="More destinations">{secondaryItems.map(({ label, icon: Icon }) => <button key={label} role="menuitem" type="button" aria-current={active === label ? 'page' : undefined} onClick={() => { onNavigate(label); setMoreOpen(false); onClose() }}><Icon size={16} />{label}</button>)}</div>}
+          </div>
         </nav>
 
         <div className="sidebar-spacer" />
@@ -77,22 +88,8 @@ function Sidebar({ active, onNavigate, open, onClose }: { active: string; onNavi
           <div className="avatar">JD</div><div className="user-copy"><strong>Jordan Davis</strong><span>Personal workspace</span></div>
           <button className="user-menu icon-button" type="button" disabled aria-label="Profile menu unavailable in preview" title="Profile actions need the application backend"><MoreHorizontal size={18} /></button>
         </div>
-      </m.aside>
+      </aside>
     </>
-  )
-}
-
-function MetricCard({ label, value, caption, icon: Icon, tone, change }: { label: string; value: string; caption: string; icon: typeof WalletCards; tone: string; change?: 'up' | 'down' }) {
-  return (
-    <m.article className="metric-card" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.38, ease: 'easeOut' }}>
-      <div className={`metric-icon metric-icon--${tone}`}><Icon size={18} strokeWidth={1.9} /></div>
-      <div className="metric-content">
-        <div className="metric-label">{label}<span className="sample-dot" /></div>
-        <div className="metric-value">{value}</div>
-        <div className="metric-caption">{change === 'up' ? <ArrowUpRight size={14} /> : change === 'down' ? <ArrowDownRight size={14} /> : null}{caption}</div>
-      </div>
-      <span className="metric-corner" aria-hidden="true" />
-    </m.article>
   )
 }
 
@@ -137,6 +134,7 @@ function App() {
   }, [localHost])
 
   const [active, setActive] = useState('Overview')
+  const [theme, setTheme] = useState<'light' | 'dark'>(() => window.localStorage.getItem('trc-theme') === 'light' ? 'light' : 'dark')
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [range, setRange] = useState('1W')
   const [accountOpen, setAccountOpen] = useState(false)
@@ -147,6 +145,11 @@ function App() {
   const [aiMessage, setAiMessage] = useState('Mock AI is idle; live AI is not configured.')
   const [aiBusy, setAiBusy] = useState(false)
   const dashboardRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme
+    window.localStorage.setItem('trc-theme', theme)
+  }, [theme])
 
   useEffect(() => {
     const headers = { 'x-simulation-user': userId }
@@ -187,7 +190,7 @@ function App() {
     size: position.volume.toFixed(2),
     entry: position.entry.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 5 }),
     last: position.market.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 5 }),
-    pnl: `${position.pnl >= 0 ? '+' : '−'}${Math.abs(position.pnl).toFixed(2)}`,
+    pnl: `${position.pnl >= 0 ? '+' : 'âˆ’'}${Math.abs(position.pnl).toFixed(2)}`,
     state: position.pnl >= 0 ? 'positive' : 'negative',
   })) ?? []
 
@@ -208,7 +211,7 @@ function App() {
   }
 
   if (window.location.pathname === '/enroll' || authState === 'signed-out') return <AuthGate onSignedIn={finishSignIn} />
-  if (authState === 'checking') return <main className="auth-screen"><div className="auth-card">Loading secure session…</div></main>
+  if (authState === 'checking') return <main className="auth-screen"><div className="auth-card">Loading secure sessionâ€¦</div></main>
 
   return (
     <LazyMotion features={domAnimation}>
@@ -220,60 +223,56 @@ function App() {
           <div className="topbar-account">
             <button className="account-switcher" type="button" aria-expanded={accountOpen} onClick={() => setAccountOpen((value) => !value)}>
               <span className="account-avatar"><Command size={16} /></span>
-              <span className="account-labels"><strong>{account?.label ?? 'Loading simulation…'}</strong><small>{account?.broker ?? 'Local simulation'}</small></span>
+              <span className="account-labels"><strong>{account?.label ?? 'Loading simulationâ€¦'}</strong><small>{account?.broker ?? 'Local simulation'}</small></span>
               <ChevronDown size={16} className={accountOpen ? 'chevron-open' : ''} />
             </button>
             <AnimatePresence>
               {accountOpen && <m.div className="account-menu" initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 5 }}>
-                <strong>Choose simulation persona</strong>{users.map((user) => <button className="persona-option" type="button" key={user.id} onClick={() => { setUserId(user.id); setAccountOpen(false) }}>{user.name}{user.id === userId ? ' · selected' : ''}</button>)}<span>Each persona has an isolated simulated account.</span>
+                <strong>Choose simulation persona</strong>{users.map((user) => <button className="persona-option" type="button" key={user.id} onClick={() => { setUserId(user.id); setAccountOpen(false) }}>{user.name}{user.id === userId ? ' Â· selected' : ''}</button>)}<span>Each persona has an isolated simulated account.</span>
               </m.div>}
             </AnimatePresence>
           </div>
-          <div className="topbar-state"><span className="mode-badge"><span />{account?.mode ?? 'SIMULATED'} · {account?.environment ?? 'DEMO'}</span><span className="state-divider" /><span className={`connection-dot${account?.connected ? ' connection-dot--online' : ''}`} /><span className="connection-copy">{account?.connected ? 'Connector demo fixture' : 'Connector offline'}</span></div>
+          <div className="topbar-state"><span className="mode-badge"><span />{account?.mode ?? 'SIMULATED'} Â· {account?.environment ?? 'DEMO'}</span><span className="state-divider" /><span className={`connection-dot${account?.connected ? ' connection-dot--online' : ''}`} /><span className="connection-copy">{account?.connected ? 'Connector demo fixture' : 'Connector offline'}</span></div>
           <div className="topbar-actions">
-            <span className="topbar-date">SATURDAY <b>·</b> NOV 07</span>
+            <span className="topbar-date">LAST UPDATE <b>·</b> NOT AVAILABLE</span>
             <button className="icon-button unavailable-control" type="button" disabled aria-label="Notifications unavailable in preview" title="Notifications need the application backend"><Bell size={18} /><i /></button>
-            <button className="topbar-help" type="button" disabled><CircleHelp size={16} /><span>Help</span></button>
+            <button className="theme-toggle" type="button" onClick={() => setTheme((value) => value === 'dark' ? 'light' : 'dark')} aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`} title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`}>{theme === 'dark' ? <Sun size={17} /> : <Moon size={17} />}<span>{theme === 'dark' ? 'Light' : 'Dark'}</span></button>
           </div>
         </header>
 
         <div className="content-wrap">
           {active === 'Overview' ? <>
-            <div className="page-intro">
-              <div><div className="overline"><span className="overline-line" />YOUR MARKET DESK</div><h1>Overview<span className="title-period">.</span></h1><p className="page-subtitle">A clear view of your account, strategies, and risk.</p></div>
-              <div className="preview-stamp"><Sparkles size={14} /><span>LOCAL SIMULATION</span><span className="stamp-divider" /><time>07 NOV 2026</time></div>
-            </div>
-
-            <div className={`preview-banner${apiError ? ' preview-banner--error' : ''}`} role={apiError ? 'alert' : 'note'}>
-              <div className="banner-icon"><SlidersHorizontal size={16} /></div>
-              <p><strong>{apiError ? 'Simulation unavailable.' : 'Simulation mode.'}</strong> {apiError || 'Fixture accounts and positions from the local API. No broker orders are placed; live mode is off.'}</p>
-              <span className="banner-end" aria-hidden="true" />
-            </div>
-
-            <section className="metrics-grid" aria-label="Simulated account metrics">
-              <MetricCard label="Balance" value={account ? formatMoney(account.balance.amount) : '—'} caption="Simulation currency · USD" icon={WalletCards} tone="blue" />
-              <MetricCard label="Equity" value={account ? formatMoney(account.equity) : '—'} caption="Includes simulated open P&L" icon={ChartNoAxesCombined} tone="navy" />
-              <MetricCard label="Today's P&L" value={account ? `${account.dailyPnl >= 0 ? '+' : '−'}${formatMoney(Math.abs(account.dailyPnl))}` : '—'} caption="Simulated daily result" icon={TrendingUp} tone="red" change={account?.dailyPnl === undefined ? undefined : account.dailyPnl >= 0 ? 'up' : 'down'} />
-              <MetricCard label="Open positions" value={String(account?.positions.length ?? 0).padStart(2, '0')} caption="Simulated positions" icon={BriefcaseBusiness} tone="cream" />
+            <section className="overview-composition" aria-label="Account overview">
+              <div className="overview-hero">
+                <div className="overline"><span className="overline-line" />YOUR MARKET DESK <span className="eyebrow-dot" />{apiError ? 'DATA UNAVAILABLE' : 'SIMULATION ACTIVE'}</div>
+                <h1><span>Your trading.</span><span>In focus.</span><span>Under control.</span></h1>
+                <p className="overview-copy">Monitor your selected account, review the trade journal, explore AI explanations, and keep risk controls in view.</p>
+                <div className="overview-actions"><button type="button" className="pill-button pill-button--primary" onClick={() => setActive('Trade History')}>Open trade history <ArrowUpRight size={16} /></button><button type="button" className="pill-button pill-button--secondary" onClick={() => setActive('Assistant')}>Ask the assistant <MessageCircle size={16} /></button></div>
+                <div className={`preview-banner overview-banner${apiError ? ' preview-banner--error' : ''}`} role={apiError ? 'alert' : 'note'}><div className="banner-icon"><SlidersHorizontal size={16} /></div><p><strong>{apiError ? 'Simulation unavailable.' : 'Simulation mode.'}</strong> {apiError || 'Fixture data only. No broker orders are placed; live mode is off.'}</p></div>
+              </div>
+              <div className="overview-rail">
+                <article className="overview-metric overview-metric--cream"><div className="overview-metric-label"><span>ACCOUNT BALANCE</span><span className="technical-tag">{account?.balance.currency ?? 'USD'}</span></div><strong className="overview-metric-value">{account ? formatMoney(account.balance.amount) : '—'}</strong><div className="overview-metric-foot"><span>Equity</span><b>{account ? formatMoney(account.equity) : '—'}</b></div><div className="overview-chart-empty">Balance history unavailable</div><small>Time-series data is not provided by this account preview.</small></article>
+                <article className="overview-metric overview-metric--navy"><div className="overview-metric-label"><span>OPEN POSITIONS</span><span className="metric-live-tag"><i /> ACCOUNT SCOPED</span></div><strong className="overview-metric-secondary">{String(account?.positions.length ?? 0).padStart(2, '0')}</strong><p>Simulated positions for {account?.label ?? 'the selected account'}.</p><div className="position-symbols">{account?.positions.slice(0, 3).map(({ symbol, side }) => <span key={symbol}><b>{symbol}</b><small>{side}</small></span>) ?? <span><b>—</b><small>No data</small></span>}</div></article>
+              </div>
             </section>
 
             <div className="dashboard-grid">
               <ScoreboardChart range={range} onRangeChange={setRange} />
-              <section className="panel risk-panel" aria-labelledby="risk-heading">
+              <section className="panel risk-panel risk-panel--feature" aria-labelledby="risk-heading">
                 <div className="panel-heading">
                   <div><span className="eyebrow">CONTROL ROOM <span className="eyebrow-dot eyebrow-dot--red" /></span><h2 className="panel-title" id="risk-heading">Strategy & risk</h2></div>
                   <span className="neutral-badge"><span />SIMULATED</span>
                 </div>
                 <div className="connection-card">
-                  <div className="connection-emblem"><span className="connection-ring"><Command size={22} /></span><span className="connection-x">×</span></div>
+                  <div className="connection-emblem"><span className="connection-ring"><Command size={22} /></span><span className={`connection-x${account?.connected ? ' connection-x--online' : ''}`} aria-label={account?.connected ? 'Connected' : 'Offline'}>{account?.connected ? <Check size={10} /> : <X size={10} />}</span></div>
                   <div className="connection-text"><strong>{account?.connected ? 'Simulation connector online' : 'Simulation connector offline'}</strong><span>All account activity remains local fixture data.</span></div>
                 </div>
                 <div className="risk-stats">
                   <div className="risk-stat"><span className="risk-stat-icon"><Bot size={16} /></span><span>AI decision</span><strong>{account?.latestDecision?.decision ?? 'HOLD'}</strong></div>
                   <div className="risk-stat"><span className="risk-stat-icon"><Gauge size={16} /></span><span>Execution mode</span><strong className="risk-value-muted">Simulation only</strong></div>
-                  <div className="risk-stat"><span className="risk-stat-icon"><Clock3 size={16} /></span><span>Last update</span><strong className="risk-value-muted">—</strong></div>
+                  <div className="risk-stat"><span className="risk-stat-icon"><Clock3 size={16} /></span><span>Daily P&amp;L</span><strong className={account?.dailyPnl !== undefined && account.dailyPnl >= 0 ? 'risk-positive' : 'risk-negative'}>{account ? `${account.dailyPnl >= 0 ? '+' : '−'}${formatMoney(Math.abs(account.dailyPnl))}` : '—'}</strong></div>
                 </div>
-                <button className="risk-link" type="button" onClick={() => void requestMockReview()} disabled={aiBusy || Boolean(apiError)} aria-describedby="mock-ai-status">{aiBusy ? 'Reviewing…' : 'Run mock AI review'} <Sparkles size={15} /></button>
+                <button className="risk-link" type="button" onClick={() => void requestMockReview()} disabled={aiBusy || Boolean(apiError)} aria-describedby="mock-ai-status">{aiBusy ? 'Reviewingâ€¦' : 'Run mock AI review'} <Sparkles size={15} /></button>
                 <p className="mock-ai-status" id="mock-ai-status" aria-live="polite">{aiMessage}</p>
               </section>
             </div>
@@ -300,7 +299,7 @@ function App() {
 
               <section className="panel activity-panel" aria-labelledby="activity-heading">
                 <div className="panel-heading"><div><span className="eyebrow">THE LOGBOOK</span><h2 className="panel-title" id="activity-heading">Recent activity</h2></div><button className="icon-button more-control" type="button" disabled aria-label="Activity options unavailable"><MoreHorizontal size={19} /></button></div>
-                <div className="activity-list">{(account?.events.length ? account.events.map((event, index) => ({ title: event.message, detail: 'Local simulation · just now', icon: index ? ShieldCheck : Activity, tone: index ? 'cream' : 'blue' })) : activities).map(({ title, detail, icon: Icon, tone }) => <article className="activity-item" key={title}>
+                <div className="activity-list">{(account?.events.length ? account.events.map((event, index) => ({ title: event.message, detail: 'Local simulation Â· just now', icon: index ? ShieldCheck : Activity, tone: index ? 'cream' : 'blue' })) : activities).map(({ title, detail, icon: Icon, tone }) => <article className="activity-item" key={title}>
                   <span className={`activity-icon activity-icon--${tone}`}><Icon size={15} /></span><div><strong>{title}</strong><span>{detail}</span></div>
                 </article>)}</div>
                 <div className="activity-footer"><span className="footer-rule" /><span>END OF SAMPLE LOG</span><span className="footer-rule" /></div>

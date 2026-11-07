@@ -1,4 +1,4 @@
-# TradeRelayCity progress
+﻿# TradeRelayCity progress
 
 Updated: 2026-11-08
 
@@ -19,7 +19,7 @@ Updated: 2026-11-08
 
 - TypeScript tests: 9 passed (simulation ownership/command states, mock HOLD, provider output downgrade and malformed response rejection).
 - Windows connector Python `unittest`: 10 passed (MCP boundary, read-only allowlist, journal idempotency, risk sizing/limits, closed-bar swing rules, stop-first backtest handling, and simulation client loopback/persona guard).
-- Local D1 migrations 0001–0004 applied successfully in the previous run. Three fixture personas, simulation quota ledger and Better Auth tables were present.
+- Local D1 migrations 0001â€“0004 applied successfully in the previous run. Three fixture personas, simulation quota ledger and Better Auth tables were present.
 - Local Worker smoke checks previously verified `/api/health` reports `SIMULATED` / `isLive=false`, fixture ownership, foreign-account 404, unauthenticated Better Auth session response, invalid invite response, mock HOLD and zero-quota 429.
 - Local end-to-end simulation smoke inserted one transient HOLD fixture, then the Python simulation client claimed and acknowledged it; result was `SIMULATION_ONLY_NO_BROKER_ACTION`, `SIMULATED`, `isLive=false`.
 - Windows PyInstaller build succeeded with Python 3.14.5. Real credential storage operations have not been tested with a disposable key.
@@ -52,3 +52,16 @@ Updated: 2026-11-08
 4. Add authenticated real-provider routing with atomic usage reservations and provider cost/limit handling; keep simulation mock-only.
 5. Add backtest dataset split/report metadata and validate on user-supplied broker data.
 6. Complete responsive/keyboard and connector runtime QA; update deployment handover after external Cloudflare setup.
+
+## 2026-11-08 visual redesign
+
+- Reworked the application design contract around the AETHER/Variant-inspired layout adapted to TradeRelayCity branding: self-hosted Inter and JetBrains Mono, centered pill navigation, navy dark theme, warm light theme, cream account metric, burgundy risk feature panel, and large rounded surfaces.
+- Added a persistent Light/Dark theme switch (dark is the default), reused existing account-scoped overview values and chart/risk components, added direct History and Assistant actions, and retained all existing destinations in the navigation More menu.
+- Updated auth, assistant, history and shared surface styling through common theme tokens. Added font package SIL Open Font License notices under `docs/licenses/`.
+- Verification run: `npm run build` passed; `npm test -- --run` passed (33 tests across 6 files); `git diff --check` passed after removing one trailing blank line.
+- Browser interaction and screenshot checks at 320, 390, 768, 1024 and 1440 were not completed: the computer-use browser host was unavailable, and this repo does not include Playwright. Account switching, History filtering and Assistant access therefore remain unverified in this redesign session. No backend routes, trading permissions, API contracts or execution safeguards were changed.
+- Follow-up sizing adjustment: removed the 1200px content cap, switched to fluid desktop gutters, and enlarged desktop navigation, account context, display headline, metric values, panel headings and table rows while preserving compact tablet/mobile scales.
+- Fixed mobile navigation compression and dropdown clipping: the compact capsule now shows the four primary destinations plus More without making the capsule a horizontal clipping scroller; the More menu remains vertically scrollable on short screens. Primary icon controls now have explicit accessible names.
+- Follow-up verification: `npm run build` passed, `npm test -- --run` passed (33 tests across 6 files). Browser visual verification remains unavailable because the CUA browser host could not attach.
+- Updated the dark theme canvas from navy to neutral charcoal (`#1F2024`), with a restrained grey ambient highlight; light theme remains off-white.
+- Removed the second rounded topbar panel so the account/context controls no longer read as a duplicate navigation bar; account switching, mode, connector health and theme controls remain available in an unboxed context row.
