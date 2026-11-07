@@ -40,6 +40,7 @@ Set-Location connector
 - Simulation API and seed data are local only. It is not authenticated production account access.
 - Better Auth passkey routes, CLI-generated D1 schema, hashed one-time invitations, owner bootstrap and invite-only enrollment UI are in source. The full WebAuthn ceremony has not been exercised with a physical authenticator, so do not deploy before that verification.
 - OpenAI, Anthropic and xAI structured-output adapter code is present but not wired to a production endpoint or verified with real keys. The only callable AI path is a local, quota-limited, deterministic HOLD simulation.
+- The Assistant page is a local simulation feature. It stores persona/account-scoped conversations with a 90-day expiry and returns deterministic answers from saved account, open-position, command, decision, and synthetic `TradeOutcomeV1` records. It does not call an AI provider; broker-reconciled history, validated learning, live broker capabilities, and chat actions are not connected. Apply migrations `0005_account_chat.sql` and `0006_trade_history.sql` before using it.
 - FxPro account binding, device pairing, production connector polling and broker execution/reconciliation are not implemented. The connector remains read-only and live entries are disabled.
 - The connector checks discovered MCP tools and optionally calls a read-only account-info tool. It blocks trade, shell, filesystem and web tools; it never claims that a successful handshake proves account binding.
 - Do not point the incomplete connector at a live account.
@@ -53,6 +54,7 @@ Hosting target is Cloudflare Workers + D1, not Oracle VM. Remote deployment need
 - [Architecture](docs/architecture.md)
 - [Implementation progress](docs/progress.md)
 - [API contract](docs/api-contract.md)
+- [Trade History handover](docs/features/trade-history-handover.md)
 - [Strategy specification](docs/strategy.md)
 - [Security and credentials](docs/security-and-credentials.md)
 - [Cloudflare deployment](docs/cloudflare-deployment.md)

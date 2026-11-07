@@ -86,6 +86,14 @@ Use a 4px base: 4, 8, 12, 16, 20, 24, 32, 40, 48, 64 and 80px. The desktop shell
 - **Accessibility:** table headers, numeric alignment, visible focus for row links, sign and semantic color for P&L.
 - **Motion:** short opacity entrance; no feed auto-scroll.
 
+### Trade history and evidence drawer
+- **Structure:** persistent account/environment stamp, SIMULATED fixture banner, separate Executed trades and Attempts/blocks tabs, filter panel, bounded table, and a right-side evidence drawer.
+- **Data hierarchy:** outcome/status leads; symbol, side, volume and timestamps identify the record; gross P&L, individual charges and net P&L stay separate. Confirmed facts, supported observations and hypotheses use separate headings. The active account currency is explicit, and mixed currencies are never combined.
+- **States:** loading, offline/unavailable, filtered empty, list rows, outcome badges, drawer loading/error, unavailable price/chart/evidence, and no-lessons state.
+- **Accessibility:** semantic table headers, tab roles and selected state, labeled filters, visible focus, 44px controls, scrollable table region on narrow layouts, dialog name/modal state, Escape and backdrop close, and text labels in addition to semantic colors.
+- **Motion:** short drawer opacity/transform entrance only; no animated financial values; remove nonessential motion under reduced-motion preference.
+- **Color:** reuse `--positive`/`--positive-bg`, `--negative`/`--negative-bg`, `--warning`, `--blue-100`, `--surface`, `--canvas`, `--border`, and text tokens. Brand red remains separate from loss semantics.
+
 ### Button and icon control
 - **Variants:** primary, secondary, quiet, destructive; icon-only only when named.
 - **States:** default, hover, pressed, focus-visible, disabled, unavailable with explanatory text.

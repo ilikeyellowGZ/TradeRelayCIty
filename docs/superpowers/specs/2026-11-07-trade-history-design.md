@@ -1,7 +1,7 @@
 # Trade History — Design Specification
 
 Date: 2026-11-07
-Status: Design approved; awaiting spec review
+Status: Approved; implementation in progress
 
 ## Goal
 

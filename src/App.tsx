@@ -5,15 +5,17 @@ import gsap from 'gsap'
 import {
   Activity, ArrowDownRight, ArrowUpRight, Bell, Bot, BriefcaseBusiness,
   ChartNoAxesCombined, ChevronDown, CircleHelp, Clock3, Command, FlaskConical,
-  Gauge, LayoutDashboard, Menu, MoreHorizontal,
+  Gauge, LayoutDashboard, Menu, MessageCircle, MoreHorizontal,
   ShieldCheck, SlidersHorizontal, Sparkles, TrendingUp, WalletCards, X,
 } from 'lucide-react'
 import { BotifyMark } from './components/BotifyMark'
 import { ScoreboardChart } from './components/ScoreboardChart'
 import { AuthGate } from './components/AuthGate'
+import { AssistantPage } from './components/AssistantPage'
+import { TradeHistoryPage } from './features/trade-history/TradeHistoryPage'
 
 type SimUser = { id: string; name: string; role: 'owner' | 'member' }
-type SimAccount = { id: string; ownerId: string; label: string; broker: string; connected: boolean; balance: { amount: number; currency: string }; equity: number; dailyPnl: number; positions: { id: string; symbol: string; description: string; side: 'BUY' | 'SELL'; volume: number; entry: number; market: number; pnl: number; source: 'SIMULATED' }[]; events: { id: string; message: string }[]; latestDecision: { decision: string; rationale: string } }
+type SimAccount = { id: string; ownerId: string; label: string; broker: string; environment: 'DEMO'; mode: 'SIMULATED'; connected: boolean; balance: { amount: number; currency: string }; equity: number; dailyPnl: number; positions: { id: string; symbol: string; description: string; side: 'BUY' | 'SELL'; volume: number; entry: number; market: number; pnl: number; source: 'SIMULATED' }[]; events: { id: string; message: string }[]; latestDecision: { decision: string; rationale: string } }
 
 const navItems = [
   { label: 'Overview', icon: LayoutDashboard },
@@ -21,6 +23,7 @@ const navItems = [
   { label: 'Bots & Strategies', icon: Bot },
   { label: 'Positions', icon: BriefcaseBusiness },
   { label: 'Trade History', icon: Activity },
+  { label: 'Assistant', icon: MessageCircle },
   { label: 'Backtests', icon: FlaskConical },
   { label: 'Risk Settings', icon: ShieldCheck },
   { label: 'Notifications', icon: Bell },
@@ -50,7 +53,7 @@ function Sidebar({ active, onNavigate, open, onClose }: { active: string; onNavi
         <div className="workspace-label">WORKSPACE <span>01</span></div>
         <nav className="primary-nav">
           {navItems.map(({ label, icon: Icon }, index) => (
-            <button key={label} type="button" className={`nav-item${active === label ? ' nav-item--active' : ''}${index === 1 || index === 5 ? ' nav-item--break' : ''}`} aria-current={active === label ? 'page' : undefined} onClick={() => { onNavigate(label); onClose() }}>
+            <button key={label} type="button" className={`nav-item${active === label ? ' nav-item--active' : ''}${index === 1 || index === 6 ? ' nav-item--break' : ''}`} aria-current={active === label ? 'page' : undefined} onClick={() => { onNavigate(label); onClose() }}>
               <Icon size={18} strokeWidth={1.8} /><span>{label}</span>{label === 'Notifications' && <span className="nav-count">2</span>}
             </button>
           ))}
@@ -226,7 +229,7 @@ function App() {
               </m.div>}
             </AnimatePresence>
           </div>
-          <div className="topbar-state"><span className="mode-badge"><span />SIMULATED</span><span className="state-divider" /><span className={`connection-dot${account?.connected ? ' connection-dot--online' : ''}`} /><span className="connection-copy">{account?.connected ? 'Connector demo fixture' : 'Connector offline'}</span></div>
+          <div className="topbar-state"><span className="mode-badge"><span />{account?.mode ?? 'SIMULATED'} · {account?.environment ?? 'DEMO'}</span><span className="state-divider" /><span className={`connection-dot${account?.connected ? ' connection-dot--online' : ''}`} /><span className="connection-copy">{account?.connected ? 'Connector demo fixture' : 'Connector offline'}</span></div>
           <div className="topbar-actions">
             <span className="topbar-date">SATURDAY <b>·</b> NOV 07</span>
             <button className="icon-button unavailable-control" type="button" disabled aria-label="Notifications unavailable in preview" title="Notifications need the application backend"><Bell size={18} /><i /></button>
@@ -304,6 +307,12 @@ function App() {
               </section>
             </div>
 
+            <footer className="page-footer"><span><span className="footer-mark"><BotifyMark compact /></span>TRADERELAYCITY</span><span>SIMULATION <i /> LIVE MODE DISABLED</span><span>Built for clarity.</span></footer>
+          </> : active === 'Trade History' ? <>
+            <TradeHistoryPage key={`${userId}:${account?.id ?? 'unavailable'}`} accountId={account?.id ?? ''} accountLabel={account?.label ?? 'Selected account'} currency={account?.balance.currency ?? 'USD'} userId={userId} />
+            <footer className="page-footer"><span><span className="footer-mark"><BotifyMark compact /></span>TRADERELAYCITY</span><span>SIMULATION <i /> LIVE MODE DISABLED</span><span>Built for clarity.</span></footer>
+          </> : active === 'Assistant' ? <>
+            <AssistantPage key={`${userId}:${account?.id ?? 'unavailable'}`} account={account} userId={userId} />
             <footer className="page-footer"><span><span className="footer-mark"><BotifyMark compact /></span>TRADERELAYCITY</span><span>SIMULATION <i /> LIVE MODE DISABLED</span><span>Built for clarity.</span></footer>
           </> : <>
             <div className="page-intro page-intro--simple"><div><div className="overline"><span className="overline-line" />WORKSPACE</div><h1>{active}<span className="title-period">.</span></h1><p className="page-subtitle">TradeRelayCity simulation workspace.</p></div><div className="preview-stamp"><span>SIMULATED</span><span className="stamp-divider" /><time>07 NOV 2026</time></div></div>

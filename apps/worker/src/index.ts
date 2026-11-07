@@ -2,6 +2,9 @@ import { Hono } from 'hono'
 import { createSimulationState, SimulationAccessError, type SimulationCommandStatus } from './simulation/core'
 import { createAuth } from './auth'
 import { MockAiProvider, type AiCandidate } from './ai/provider'
+import { registerHistoryRoutes } from './history/routes'
+import { answerSimulationQuestion, normalizeChatQuestion, type ChatContext } from './chat/simulation'
+import { listHistory, type HistoryDatabase } from './history/repository'
 
 type Bindings = { DB: D1Database; SIMULATION_MODE?: string; APP_BASE_URL?: string; BETTER_AUTH_SECRET?: string }
 type Variables = { simulationUser: string }
@@ -66,9 +69,92 @@ app.use('/api/simulation/*', async (c, next) => {
   await next()
 })
 
+app.use('/api/simulation/chat', async (c, next) => {
+  if (c.req.method !== 'GET' && c.req.header('origin') !== new URL(c.req.url).origin) return c.json({ error: 'Invalid origin.' }, 403)
+  await c.env.DB.prepare("DELETE FROM sim_chat_conversations WHERE owner_id = ? AND expires_at <= datetime('now')").bind(c.get('simulationUser')).run()
+  await next()
+})
+app.use('/api/simulation/chat/*', async (c, next) => {
+  if (c.req.method !== 'GET' && c.req.header('origin') !== new URL(c.req.url).origin) return c.json({ error: 'Invalid origin.' }, 403)
+  await c.env.DB.prepare("DELETE FROM sim_chat_conversations WHERE owner_id = ? AND expires_at <= datetime('now')").bind(c.get('simulationUser')).run()
+  await next()
+})
+
 app.get('/api/simulation/session', async (c) => {
   const { results } = await c.env.DB.prepare('SELECT id, display_name AS name, role FROM sim_users ORDER BY id').all<{ id: string; name: string; role: 'owner' | 'member' }>()
   return c.json({ persona: results.find((user) => user.id === c.get('simulationUser')), users: results, mode: 'SIMULATED', isLive: false })
+})
+
+app.get('/api/simulation/chat', async (c) => {
+  const accountId = c.req.query('accountId')
+  if (!accountId || accountId.length > 100) return c.json({ error: 'A bounded accountId is required.' }, 400)
+  const ownerId = c.get('simulationUser')
+  const account = await c.env.DB.prepare('SELECT id FROM sim_accounts WHERE id = ? AND owner_id = ?').bind(accountId, ownerId).first()
+  if (!account) return c.json({ error: 'Account not found.' }, 404)
+  const { results } = await c.env.DB.prepare('SELECT id, account_id AS accountId, title, created_at AS createdAt, updated_at AS updatedAt, expires_at AS expiresAt FROM sim_chat_conversations WHERE owner_id = ? AND account_id = ? ORDER BY updated_at DESC LIMIT 50').bind(ownerId, accountId).all()
+  return c.json({ conversations: results, mode: 'SIMULATED', retentionDays: 90 })
+})
+
+app.post('/api/simulation/chat', async (c) => {
+  const body = await c.req.json<{ accountId?: string; title?: string }>().catch(() => ({}))
+  if (!body.accountId || body.accountId.length > 100) return c.json({ error: 'A bounded accountId is required.' }, 400)
+  const ownerId = c.get('simulationUser')
+  const account = await c.env.DB.prepare('SELECT id FROM sim_accounts WHERE id = ? AND owner_id = ?').bind(body.accountId, ownerId).first()
+  if (!account) return c.json({ error: 'Account not found.' }, 404)
+  const id = crypto.randomUUID()
+  const title = typeof body.title === 'string' ? body.title.trim().slice(0, 80) : 'New conversation'
+  await c.env.DB.prepare('INSERT INTO sim_chat_conversations(id, owner_id, account_id, title) VALUES(?,?,?,?)').bind(id, ownerId, body.accountId, title || 'New conversation').run()
+  return c.json({ conversation: { id, accountId: body.accountId, title: title || 'New conversation', messages: [], expiresAt: new Date(Date.now() + 90 * 86400000).toISOString() }, mode: 'SIMULATED' }, 201)
+})
+
+app.get('/api/simulation/chat/:id', async (c) => {
+  const ownerId = c.get('simulationUser')
+  const conversation = await c.env.DB.prepare("SELECT id, account_id AS accountId, title, created_at AS createdAt, updated_at AS updatedAt, expires_at AS expiresAt FROM sim_chat_conversations WHERE id = ? AND owner_id = ? AND expires_at > datetime('now')").bind(c.req.param('id'), ownerId).first<Record<string, unknown>>()
+  if (!conversation) return c.json({ error: 'Conversation not found.' }, 404)
+  const { results } = await c.env.DB.prepare("SELECT id, role, content, citations_json AS citationsJson, created_at AS createdAt FROM sim_chat_messages WHERE conversation_id = ? ORDER BY created_at LIMIT 100").bind(conversation.id).all<{ id: string; role: string; content: string; citationsJson: string; createdAt: string }>()
+  const messages = results.map(({ citationsJson, ...message }) => ({ ...message, citations: JSON.parse(citationsJson) as string[] }))
+  return c.json({ conversation: { ...conversation, messages }, mode: 'SIMULATED' })
+})
+
+app.delete('/api/simulation/chat/:id', async (c) => {
+  const result = await c.env.DB.prepare('DELETE FROM sim_chat_conversations WHERE id = ? AND owner_id = ? RETURNING id').bind(c.req.param('id'), c.get('simulationUser')).first()
+  if (!result) return c.json({ error: 'Conversation not found.' }, 404)
+  return c.json({ deleted: true })
+})
+
+app.post('/api/simulation/chat/:id/messages', async (c) => {
+  const rawBody = await c.req.text()
+  if (rawBody.length > 7000) return c.json({ error: 'Message payload exceeds the 7 KB limit.' }, 413)
+  let body: { content?: unknown }
+  try { body = JSON.parse(rawBody) as typeof body } catch { return c.json({ error: 'Invalid JSON request.' }, 400) }
+  const question = normalizeChatQuestion(body.content)
+  if (!question) return c.json({ error: 'A message from 1 to 2,000 characters is required.' }, 400)
+  const ownerId = c.get('simulationUser')
+  const conversation = await c.env.DB.prepare("SELECT id, account_id AS accountId FROM sim_chat_conversations WHERE id = ? AND owner_id = ? AND expires_at > datetime('now')").bind(c.req.param('id'), ownerId).first<{ id: string; accountId: string }>()
+  if (!conversation) return c.json({ error: 'Conversation not found.' }, 404)
+  const messageCount = await c.env.DB.prepare('SELECT COUNT(*) AS count FROM sim_chat_messages WHERE conversation_id = ?').bind(conversation.id).first<{ count: number }>()
+  if ((messageCount?.count ?? 0) >= 100) return c.json({ error: 'This conversation reached its 100-message limit. Start a new conversation to continue.' }, 409)
+  const usageRow = await c.env.DB.prepare("INSERT INTO sim_chat_usage_daily(user_id, usage_date, request_count, daily_limit) VALUES(?, date('now'), 1, 20) ON CONFLICT(user_id, usage_date) DO UPDATE SET request_count = sim_chat_usage_daily.request_count + 1 WHERE sim_chat_usage_daily.request_count < sim_chat_usage_daily.daily_limit RETURNING request_count AS used, daily_limit AS dailyLimit").bind(ownerId).first<{ used: number; dailyLimit: number }>()
+  const usage = usageRow ? { used: usageRow.used, limit: usageRow.dailyLimit } : null
+  if (!usage) return c.json({ error: 'SIMULATED chat allowance reached for today.', code: 'CHAT_QUOTA_EXHAUSTED' }, 429)
+  const [account, positions, commands, decision, history] = await Promise.all([
+    c.env.DB.prepare('SELECT id, owner_id, label, currency, balance, equity, daily_pnl, connected FROM sim_accounts WHERE id = ? AND owner_id = ?').bind(conversation.accountId, ownerId).first<ChatContext['account']>(),
+    c.env.DB.prepare('SELECT p.id, p.symbol, p.side, p.volume, p.pnl FROM sim_positions p INNER JOIN sim_accounts a ON a.id = p.account_id WHERE p.account_id = ? AND a.owner_id = ? ORDER BY p.id LIMIT 20').bind(conversation.accountId, ownerId).all<ChatContext['positions'][number]>(),
+    c.env.DB.prepare("SELECT id, operation, symbol, status, note, expires_at FROM sim_commands WHERE account_id = ? AND owner_id = ? ORDER BY created_at DESC LIMIT 20").bind(conversation.accountId, ownerId).all<ChatContext['commands'][number]>(),
+    c.env.DB.prepare('SELECT id, decision, rationale FROM sim_decisions WHERE owner_id = ? ORDER BY created_at DESC LIMIT 1').bind(ownerId).first<NonNullable<ChatContext['decision']>>(),
+    listHistory(c.env.DB as HistoryDatabase, ownerId, conversation.accountId, { limit: 25, environment: 'SIMULATED' }),
+  ])
+  if (!account) return c.json({ error: 'Account not found.' }, 404)
+  const context: ChatContext = { account, positions: positions.results, commands: commands.results, decision: decision ?? null, usage, history: history.items }
+  const answer = answerSimulationQuestion(question, context)
+  const userMessage = { id: crypto.randomUUID(), role: 'user', content: question, citations: [], createdAt: new Date().toISOString() }
+  const assistantMessage = { id: crypto.randomUUID(), role: 'assistant', content: answer.content, citations: answer.citations, createdAt: new Date().toISOString(), simulated: true as const }
+  await c.env.DB.batch([
+    c.env.DB.prepare('INSERT INTO sim_chat_messages(id, conversation_id, role, content, citations_json, created_at) VALUES(?,?,?,?,?,?)').bind(userMessage.id, conversation.id, userMessage.role, userMessage.content, '[]', userMessage.createdAt),
+    c.env.DB.prepare('INSERT INTO sim_chat_messages(id, conversation_id, role, content, citations_json, created_at) VALUES(?,?,?,?,?,?)').bind(assistantMessage.id, conversation.id, assistantMessage.role, assistantMessage.content, JSON.stringify(assistantMessage.citations), assistantMessage.createdAt),
+    c.env.DB.prepare("UPDATE sim_chat_conversations SET updated_at = datetime('now'), title = CASE WHEN title = 'New conversation' THEN ? ELSE title END WHERE id = ? AND owner_id = ?").bind(question.slice(0, 80), conversation.id, ownerId),
+  ])
+  return c.json({ messages: [userMessage, assistantMessage], usage, mode: 'SIMULATED', provider: 'deterministic-fixture' })
 })
 
 app.get('/api/simulation/accounts', async (c) => {
@@ -87,6 +173,8 @@ app.get('/api/simulation/accounts/:id/overview', async (c) => {
   ])
   return c.json({ ...account, isLive: false, balance: { amount: account.balance, currency: account.currency }, positions: positions.results, commands: commands.results, latestDecision, events: events.results })
 })
+
+registerHistoryRoutes(app)
 
 app.post('/api/simulation/ai/decision', async (c) => {
   const rawBody = await c.req.text()

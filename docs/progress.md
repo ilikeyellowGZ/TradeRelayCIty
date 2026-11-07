@@ -1,6 +1,6 @@
 # TradeRelayCity progress
 
-Updated: 2026-11-07
+Updated: 2026-11-08
 
 ## Implemented
 
@@ -8,6 +8,7 @@ Updated: 2026-11-07
 - Cloudflare Vite Worker + Hono + D1 local simulation. Three isolated seeded users/accounts, fixture positions/events/decisions and command states. API ownership checks use account-scoped SQL and return 404 for foreign records.
 - Better Auth passkey plugin mounted on `/api/auth/*`; official CLI-generated D1 auth schema; one-time hashed invite records, owner bootstrap script, invite validation and enrollment UI. Physical WebAuthn and recovery/revocation flows are not verified/complete.
 - Local-only simulation API is guarded by `SIMULATION_MODE=true` and loopback host. Fixture account data, command transitions, deterministic HOLD-only mock AI decision route and per-user/owner request quota are implemented. A Python simulation client can atomically claim and acknowledge a HOLD fixture; it hard-requires loopback, only accepts HOLD, and reports `brokerAction: NONE`. No simulated route can create a broker order.
+- Trade History is a local SIMULATED feature with separate executed/attempt views, versioned outcome and evidence read model, labeled cost/P&L fixtures, account-scoped list/detail/CSV routes, conservative explanations, and a responsive detail drawer. Broker history import and production auth remain unavailable.
 - Provider adapter module contains bounded OpenAI Responses, Anthropic Messages and xAI chat structured-output request implementations, timeout/size checks and candidate-match validation. It is not connected to a production route and has not been called with credentials.
 - Closed-bar ICT-inspired strategy evaluator and Decimal risk precheck. These generate candidate/permission results only. Live entry execution is hard-disabled.
 - CSV M15/H1 backtest runner uses chronologically available closed bars, bounded retracement expiry, spread/slippage/commission price costs and adverse stop-first handling when one candle touches both levels. No market dataset or performance claim is included.
@@ -23,6 +24,8 @@ Updated: 2026-11-07
 - Local end-to-end simulation smoke inserted one transient HOLD fixture, then the Python simulation client claimed and acknowledged it; result was `SIMULATION_ONLY_NO_BROKER_ACTION`, `SIMULATED`, `isLive=false`.
 - Windows PyInstaller build succeeded with Python 3.14.5. Real credential storage operations have not been tested with a disposable key.
 - `npm run build` succeeds after the latest source changes; Cloudflare Vite prints non-fatal upstream Zod annotation and auth-client chunk notices. Post-build check confirmed `dist/traderelaycity/.dev.vars` is absent.
+- Trade History logic tests cover outcome classification, inclusive net/P&L mapping, weighted partial-fill aggregation, conservative missing-evidence wording, CSV formula neutralization/redaction, owner/account-bound query construction, and bounded pagination.
+- Local D1 migration `0006_trade_history.sql` applied; repeated execution kept fixture IDs stable. Local API smoke checks verified owner list/detail/export and foreign-owner 404s. Browser smoke checks exercised both history views, detail drawer, filter/search, CSV download, timezone labeling and 375px layout with no document-level horizontal overflow.
 
 ## Unverified
 
