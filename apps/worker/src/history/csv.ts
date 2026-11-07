@@ -7,6 +7,6 @@ export function sanitizeCsvCell(input: unknown): string {
 }
 
 export function serializeHistoryCsv(rows: Record<string, unknown>[]) {
-  const columns = ['id', 'version', 'symbol', 'side', 'orderType', 'volume', 'entryTime', 'exitTime', 'averageEntryPrice', 'averageExitPrice', 'grossPnl', 'commission', 'swap', 'otherCosts', 'netPnl', 'currency', 'status', 'outcome', 'source', 'exitReason']
+  const columns = ['id', 'version', 'symbol', 'side', 'orderType', 'orderTicket', 'positionTicket', 'volume', 'entryTime', 'exitTime', 'averageEntryPrice', 'averageExitPrice', 'grossPnl', 'commission', 'swap', 'otherCosts', 'netPnl', 'currency', 'status', 'outcome', 'source', 'exitReason']
   return [columns.join(','), ...rows.map((row) => columns.map((column) => sanitizeCsvCell(row[column])).join(','))].join('\r\n') + '\r\n'
 }

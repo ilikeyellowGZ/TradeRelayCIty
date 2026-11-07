@@ -35,7 +35,8 @@ export type TradeOutcomeV1 = {
   promptVersion: string | null
   commandId: string | null
   decisionId: string | null
-  brokerTicket: string | null
+  orderTicket: string | null
+  positionTicket: string | null
   fills: TradeFill[]
   timeline: TradeTimelineItem[]
   facts: TradeEvidence[]

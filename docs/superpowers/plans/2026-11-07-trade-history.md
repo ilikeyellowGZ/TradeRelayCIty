@@ -1,4 +1,4 @@
-# Trade History Implementation Plan
+﻿# Trade History Implementation Plan
 
 > **For agentic workers:** Execute each task in order. This plan is executed inline in this session.
 
@@ -37,15 +37,15 @@
 - Export `buildExplanation(record)` returning confirmed facts, supported observations, hypotheses, missing evidence, and a conservative default loss explanation.
 - Export `sanitizeCsvCell(value)` and `serializeHistoryCsv(rows)` with formula neutralization for `=`, `+`, `-`, `@`, tab, and carriage-return prefixes.
 
-- [ ] **Step 1: Add failing pure-logic tests** for profit/loss/break-even/open, rejection vs unknown vs HOLD, gross/cost/net mapping, missing context language, and CSV formula cells.
-- [ ] **Step 2: Run focused tests and confirm they fail** with `npm test -- --run apps/worker/src/history/model.test.ts apps/worker/src/history/csv.test.ts`.
-- [ ] **Step 3: Implement the shared types and pure functions** with no D1 or UI dependencies.
-- [ ] **Step 4: Re-run focused tests and confirm they pass.**
+- [x] **Step 1: Add failing pure-logic tests** for profit/loss/break-even/open, rejection vs unknown vs HOLD, gross/cost/net mapping, missing context language, and CSV formula cells.
+- [x] **Step 2: Run focused tests and confirm they fail** with `npm test -- --run apps/worker/src/history/model.test.ts apps/worker/src/history/csv.test.ts`.
+- [x] **Step 3: Implement the shared types and pure functions** with no D1 or UI dependencies.
+- [x] **Step 4: Re-run focused tests and confirm they pass.**
 
 ### Task 2: D1 history tables, fixtures, and scoped API
 
 **Files:**
-- Create: `migrations/0005_trade_history.sql`
+- Create: `migrations/0006_trade_history.sql`
 - Create: `apps/worker/src/history/repository.ts`
 - Create: `apps/worker/src/history/routes.ts`
 - Modify: `apps/worker/src/index.ts`
@@ -59,11 +59,11 @@
 - `listHistory(db, ownerId, accountId, filters)` binds every filter and owner/account ID, orders by `created_at DESC, id DESC`, fetches at most `limit + 1`, and produces an opaque tuple cursor.
 - Migration creates versioned outcome rows and deal/fill and timeline evidence rows with unique stable IDs, account and owner foreign keys, owner/account consistency checks, and indexes on `(account_id, occurred_at, id)` and lookup ticket IDs. Seed at least ten deterministic fixtures for the owner persona and representative attempts for the other fixture personas.
 
-- [ ] **Step 1: Add repository tests** for bounded limit/cursor behavior, all specified filters, stable fixture IDs, duplicate migration seeding, and owner/account scoping.
-- [ ] **Step 2: Add the migration and fixtures** for profitable close, stop-loss loss, manual loss, gross profit erased by costs, rejection, risk block, expired order, partial fill, manual import with missing rationale, and unknown submission.
-- [ ] **Step 3: Implement parameterized repository queries and Hono route handlers**; call the route registration from `apps/worker/src/index.ts` under existing simulation middleware.
-- [ ] **Step 4: Apply local D1 migration and run focused API/repository tests.** Verify one foreign persona receives the same 404 for list, detail, and export.
-- [ ] **Step 5: Document the three read endpoints** in `docs/api-contract.md`.
+- [x] **Step 1: Add repository tests** for bounded limit/cursor behavior, all specified filters, stable fixture IDs, duplicate migration seeding, and owner/account scoping.
+- [x] **Step 2: Add the migration and fixtures** for profitable close, stop-loss loss, manual loss, gross profit erased by costs, rejection, risk block, expired order, partial fill, manual import with missing rationale, and unknown submission.
+- [x] **Step 3: Implement parameterized repository queries and Hono route handlers**; call the route registration from `apps/worker/src/index.ts` under existing simulation middleware.
+- [x] **Step 4: Apply local D1 migration and run focused API/repository tests.** Verify one foreign persona receives the same 404 for list, detail, and export.
+- [x] **Step 5: Document the three read endpoints** in `docs/api-contract.md`.
 
 ### Task 3: Trade History interface and interaction
 
@@ -81,11 +81,11 @@
 - The page uses the account-scoped list/detail/export endpoints and never calls AI or order APIs.
 - `TradeHistoryDetail` receives a `TradeOutcomeV1` and `onClose`; it renders all available evidence and explicit unavailable states, with timeline and diagnostics collapsed accessibly.
 
-- [ ] **Step 1: Add the desktop page structure** using current page heading, account label, visible SIMULATED badge, UTC/browser timezone note, two tabs, filter controls, metrics separated by currency, and semantic table.
-- [ ] **Step 2: Add interactions** for filters/search, bounded newest-first pagination, detail drawer, close/Escape behavior, and filtered CSV download.
-- [ ] **Step 3: Add the detail view** with outcome/cost summary, tickets/fills, chronology, price/stop/target fields, explanation evidence levels, unavailable chart state, diagnostics, and no-lessons explanation.
-- [ ] **Step 4: Mount `TradeHistoryPage`** for the existing Trade History navigation item and retain `SectionPreview` for unrelated destinations.
-- [ ] **Step 5: Add responsive/accessibility styles** for keyboard focus, 44px controls, mobile stacked filters, horizontally scrollable table, drawer reflow, and reduced motion, using existing design tokens.
+- [x] **Step 1: Add the desktop page structure** using current page heading, account label, visible SIMULATED badge, UTC/browser timezone note, two tabs, filter controls, metrics separated by currency, and semantic table.
+- [x] **Step 2: Add interactions** for filters/search, bounded newest-first pagination, detail drawer, close/Escape behavior, and filtered CSV download.
+- [x] **Step 3: Add the detail view** with outcome/cost summary, tickets/fills, chronology, price/stop/target fields, explanation evidence levels, unavailable chart state, diagnostics, and no-lessons explanation.
+- [x] **Step 4: Mount `TradeHistoryPage`** for the existing Trade History navigation item and retain `SectionPreview` for unrelated destinations.
+- [x] **Step 5: Add responsive/accessibility styles** for keyboard focus, 44px controls, mobile stacked filters, horizontally scrollable table, drawer reflow, and reduced motion, using existing design tokens.
 
 ### Task 4: Focused verification and feature handover
 
@@ -94,14 +94,14 @@
 - Modify: `docs/api-contract.md`
 - Modify: `docs/progress.md`
 
-- [ ] **Step 1: Run focused Worker tests and full TypeScript/build checks** using `npm test -- --run`, `npm run build`, and local D1 migrations.
-- [ ] **Step 2: Run local HTTP smoke checks** for owner list/detail/CSV, foreign account 404 for all three, selected filters, and no-AI/no-connector offline state.
-- [ ] **Step 3: Inspect the feature at 375px and desktop width** using a real browser when available; exercise filters, detail open/close, timezone label, export download, and keyboard navigation. Fix observed issues before reporting.
-- [ ] **Step 4: Write the handover** with owned files, schema tables/indexes, exported types/routes, how future broker reconciliation supplies immutable versions, checks actually run, and blockers for real history import/auth/AI/learning.
-- [ ] **Step 5: Update progress/API docs** and confirm the build does not stage secrets or create broker side effects.
+- [x] **Step 1: Run focused Worker tests and full TypeScript/build checks** using `npm test -- --run`, `npm run build`, and local D1 migrations.
+- [x] **Step 2: Run local HTTP smoke checks** for owner list/detail/CSV, foreign account 404 for all three, selected filters, and no-AI/no-connector offline state.
+- [x] **Step 3: Inspect the feature at 375px and desktop width** using a real browser when available; exercise filters, detail open/close, timezone label, export download, and keyboard navigation. Fix observed issues before reporting.
+- [x] **Step 4: Write the handover** with owned files, schema tables/indexes, exported types/routes, how future broker reconciliation supplies immutable versions, checks actually run, and blockers for real history import/auth/AI/learning.
+- [x] **Step 5: Update progress/API docs** and confirm the build does not stage secrets or create broker side effects.
 
 ## Plan self-review
 
-- **Coverage:** Outcome types, categories, costs, immutable versions, fixture breadth, account isolation, list/detail/export, filters, UTC, detail evidence, conservative explanations, lessons placeholder, CSV safety, bounded access, offline operation, responsive UI, tests, and handover map to Tasks 1–4. Real broker import, production auth, AI analysis, and learning are explicitly deferred by the spec.
+- **Coverage:** Outcome types, categories, costs, immutable versions, fixture breadth, account isolation, list/detail/export, filters, UTC, detail evidence, conservative explanations, lessons placeholder, CSV safety, bounded access, offline operation, responsive UI, tests, and handover map to Tasks 1â€“4. Real broker import, production auth, AI analysis, and learning are explicitly deferred by the spec.
 - **Placeholders:** No TBD/TODO steps. Every task names files, interfaces, concrete operations, and commands.
-- **Type consistency:** Repository and UI both consume the shared `TradeOutcomeV1`; list/detail/export route paths are consistent across Tasks 2–3.
+- **Type consistency:** Repository and UI both consume the shared `TradeOutcomeV1`; list/detail/export route paths are consistent across Tasks 2â€“3.

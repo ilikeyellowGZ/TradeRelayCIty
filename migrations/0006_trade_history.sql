@@ -24,7 +24,7 @@ CREATE TABLE IF NOT EXISTS sim_trade_history (
   swap REAL,
   other_costs REAL,
   net_pnl REAL,
-  status TEXT NOT NULL,
+  status TEXT NOT NULL CHECK (status IN ('closed', 'open', 'partially_closed', 'rejected', 'blocked', 'skipped', 'cancelled', 'expired', 'unknown')),
   outcome TEXT NOT NULL CHECK (outcome IN ('closed_profit', 'closed_loss', 'closed_break_even', 'open_partial', 'broker_rejected', 'risk_blocked', 'skipped_hold', 'order_cancelled', 'order_expired', 'submission_unknown')),
   exit_reason TEXT,
   strategy TEXT,

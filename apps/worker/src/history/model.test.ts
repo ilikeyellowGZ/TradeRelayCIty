@@ -6,7 +6,7 @@ const trade = (overrides: Partial<TradeOutcomeV1> = {}): TradeOutcomeV1 => ({
   recordType: 'trade', symbol: 'EURUSD', side: 'BUY', orderType: 'MARKET', volume: 0.1, entryTime: '2026-11-01T10:00:00.000Z',
   exitTime: '2026-11-01T11:00:00.000Z', averageEntryPrice: 1.1, averageExitPrice: 1.101, currency: 'USD', grossPnl: 10,
   commission: 1, swap: 0, otherCosts: 0, netPnl: 9, status: 'closed', outcome: 'closed_profit', exitReason: 'Target reached',
-  strategy: 'Fixture strategy', strategyVersion: null, promptVersion: null, commandId: null, decisionId: null, brokerTicket: null,
+  strategy: 'Fixture strategy', strategyVersion: null, promptVersion: null, commandId: null, decisionId: null, orderTicket: null, positionTicket: null,
   fills: [], timeline: [], facts: [], observations: [], hypotheses: [], missingEvidence: [], originalStop: 1.09, target: 1.101,
   requestedPrice: 1.1, slippage: null, ...overrides,
 })
@@ -16,6 +16,7 @@ describe('trade history outcome model', () => {
     expect(classifyOutcome(trade({ netPnl: 0.02 }))).toBe('closed_profit')
     expect(classifyOutcome(trade({ netPnl: -0.02 }))).toBe('closed_loss')
     expect(classifyOutcome(trade({ netPnl: 0.01 }))).toBe('closed_break_even')
+    expect(classifyOutcome(trade({ netPnl: -0.01 }))).toBe('closed_break_even')
   })
 
   it('does not turn rejection, HOLD or unknown submission into executed losses', () => {

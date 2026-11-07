@@ -24,7 +24,7 @@ All rows are synthetic `SIMULATED` fixtures. This feature does not import MT5/Fx
 
 ## Data model and P&L mapping
 
-`sim_trade_history` stores one stable outcome ID with an integer version. Composite foreign keys bind each version to an account and its owner; indexes support account/time ordering and account-scoped ticket lookup. `supersedes_version` and `correction_reason` provide fields for future corrected outcome versions. JSON arrays store related fills, timeline entries, confirmed facts, supported observations, hypotheses, and missing evidence. The feature exposes no write endpoint, so it cannot update source history.
+`sim_trade_history` stores one stable outcome ID with an integer version. Composite foreign keys bind each version to an account and its owner; indexes support account/time ordering and account-scoped ticket lookup. `supersedes_version` and `correction_reason` provide fields for future corrected outcome versions. JSON arrays store related fills, timeline entries, confirmed facts, supported observations, hypotheses, and missing evidence. The simulation schema's `broker_ticket` field is exposed as an order ticket; position tickets are unavailable in these fixtures, while each fill ticket is displayed as a deal ticket. The feature exposes no write endpoint, so it cannot update source history.
 
 `sim_trade_history` is an outcome read model, not an order, deal, or broker position ledger. The simulation fixtures describe a reconciled position-level outcome with related deal/fill evidence. Future reconciliation must group orders, deals and positions according to the broker's netting/hedging rules before writing `TradeOutcomeV1`; it must not infer a position from a single ticket or combine uncertain source attribution.
 
@@ -54,7 +54,14 @@ Owner history includes a profitable close, stop-loss loss, manual losing close, 
 
 ## Checks performed
 
-Update this section with the final commands and browser/API checks run for the handoff. Real broker-history import, production auth, real AI analysis, and learning integration are outside the current implementation.
+- `npm test -- --run` — 6 files and 33 tests passed.
+- `npm run build` — TypeScript and both Worker/client production bundles completed. Rollup reported non-fatal upstream Zod annotation and existing auth-client chunk notices. Confirmed `dist/traderelaycity/.dev.vars` was removed by build cleanup.
+- `npx wrangler d1 execute traderelaycity --local --file=migrations/0006_trade_history.sql` — applied successfully, including a repeat run. Owner-scoped fixture counts remained 7 executed trades + 5 attempts for `sim-owner`, and 1 attempt each for `sim-trader-1` and `sim-trader-2`.
+- Local HTTP smoke — owner list/detail/CSV returned data; CSV had the expected `text/csv` content type. A foreign persona received 404 for list, detail, and export.
+- Production client Chromium smoke — exercised both history views, detail facts/costs/fill aggregation, Esc close, symbol filtering, CSV download, timezone label, and 1280/768/375px layouts. No page errors or document-level horizontal overflow were observed.
+- `git diff --check` completed without whitespace errors.
+
+These checks cover local simulation fixtures only. Real broker-history import, production auth, real AI analysis, and learning integration remain outside the implementation.
 
 ## Remaining blockers
 

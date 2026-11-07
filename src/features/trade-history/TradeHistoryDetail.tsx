@@ -80,7 +80,8 @@ export function TradeHistoryDetail({ trade, onClose }: { trade: TradeOutcomeV1; 
           <h3 id="th-execution-heading">Execution evidence</h3>
           <dl className="th-detail-grid">
             <DetailsRow label="Internal ID">{trade.id}</DetailsRow>
-            <DetailsRow label="Broker ticket">{trade.brokerTicket ? redactSensitiveText(trade.brokerTicket) : 'Not recorded'}</DetailsRow>
+            <DetailsRow label="Order ticket">{trade.orderTicket ? redactSensitiveText(trade.orderTicket) : 'Not recorded'}</DetailsRow>
+            <DetailsRow label="Position ticket">{trade.positionTicket ? redactSensitiveText(trade.positionTicket) : 'Not recorded'}</DetailsRow>
             <DetailsRow label="Command / decision">{trade.commandId ?? '—'} / {trade.decisionId ?? '—'}</DetailsRow>
             <DetailsRow label="Requested price">{price(trade.requestedPrice, trade.symbol)}</DetailsRow>
             <DetailsRow label="Average fill price">{price(trade.averageEntryPrice, trade.symbol)}</DetailsRow>
@@ -90,7 +91,7 @@ export function TradeHistoryDetail({ trade, onClose }: { trade: TradeOutcomeV1; 
           </dl>
           {trade.fills.length > 0 && <div className="th-fill-list"><h4>Deals and partial fills</h4><p className="th-footnote">Deal aggregation: {fillSummary.entryVolume.toFixed(2)} lots entered, {fillSummary.closedVolume.toFixed(2)} lots closed · weighted entry {price(fillSummary.averageEntryPrice, trade.symbol)} · weighted exit {price(fillSummary.averageExitPrice, trade.symbol)}.</p>{trade.fills.map((fill) => <article key={fill.id}>
             <div><strong>{fill.role} · {fill.side} · {fill.volume.toFixed(2)} lots</strong><span>{dateTime(fill.occurredAt, timezone)}</span></div>
-            <div><span>{fill.ticket ? redactSensitiveText(fill.ticket) : fill.id}</span><strong>{price(fill.price, trade.symbol)}</strong></div>
+            <div><span>Deal ticket: {fill.ticket ? redactSensitiveText(fill.ticket) : fill.id}</span><strong>{price(fill.price, trade.symbol)}</strong></div>
             <span>Gross {money(fill.grossPnl, trade.currency)} · commission {money(fill.commission, trade.currency)} · swap {money(fill.swap, trade.currency)}</span>
           </article>)}</div>}
         </section>

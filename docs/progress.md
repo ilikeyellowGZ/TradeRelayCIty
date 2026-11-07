@@ -26,6 +26,7 @@ Updated: 2026-11-08
 - `npm run build` succeeds after the latest source changes; Cloudflare Vite prints non-fatal upstream Zod annotation and auth-client chunk notices. Post-build check confirmed `dist/traderelaycity/.dev.vars` is absent.
 - Trade History logic tests cover outcome classification, inclusive net/P&L mapping, weighted partial-fill aggregation, conservative missing-evidence wording, CSV formula neutralization/redaction, owner/account-bound query construction, and bounded pagination.
 - Local D1 migration `0006_trade_history.sql` applied; repeated execution kept fixture IDs stable. Local API smoke checks verified owner list/detail/export and foreign-owner 404s. Browser smoke checks exercised both history views, detail drawer, filter/search, CSV download, timezone labeling and 375px layout with no document-level horizontal overflow.
+- Latest verification: `npm test -- --run` passed 33 tests across 6 files; `npm run build` completed; repeated local application of migration `0006` preserved 7 owner trades + 5 owner attempts and one attempt per other demo owner. Chromium checks covered 1280/768/375px with no page errors or document-level horizontal overflow; `git diff --check` reported no whitespace errors.
 
 ## Unverified
 

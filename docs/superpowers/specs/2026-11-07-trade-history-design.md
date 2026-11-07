@@ -1,7 +1,7 @@
-# Trade History — Design Specification
+﻿# Trade History â€” Design Specification
 
 Date: 2026-11-07
-Status: Approved; implementation in progress
+Status: Implemented
 
 ## Goal
 
@@ -40,7 +40,7 @@ Use a documented break-even tolerance of `abs(net P&L) <= 0.01` in account curre
 
 ## Explanations
 
-Present three distinct levels: confirmed facts, supported observations, and possible contributing factors marked as hypotheses with evidence and uncertainty. Every statement cites the linked command, decision, check, deal, or snapshot record when available. When the saved records do not establish a cause, use: “The available records do not establish why this setup lost.” Explain missing context; never infer news, liquidity events, bad timing, or strategy mistakes from negative P&L alone.
+Present three distinct levels: confirmed facts, supported observations, and possible contributing factors marked as hypotheses with evidence and uncertainty. Every statement cites the linked command, decision, check, deal, or snapshot record when available. When the saved records do not establish a cause, use: â€œThe available records do not establish why this setup lost.â€ Explain missing context; never infer news, liquidity events, bad timing, or strategy mistakes from negative P&L alone.
 
 The initial implementation is deterministic and does not require AI. An Analyze outcome action is deferred because real AI routing is not wired to authorized saved outcome records. The interface must not show fabricated AI analysis or spend AI quota on render.
 
