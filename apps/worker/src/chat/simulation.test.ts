@@ -14,7 +14,7 @@ const historyRecord = (overrides: Partial<TradeOutcomeV1> = {}): TradeOutcomeV1 
 const context: ChatContext = {
   account: { id: 'sim-account-owner', owner_id: 'sim-owner', label: 'Owner demo account', currency: 'USD', balance: 24580, equity: 24764.32, daily_pnl: 184.32, connected: 1 },
   positions: [{ id: 'sim-position-0-1', symbol: 'GBPUSD', side: 'SELL', volume: 0.08, pnl: -12.8 }],
-  commands: [{ id: 'sim-command-0-rejected', operation: 'OPEN', symbol: 'XAUUSD', status: 'rejected', note: 'Rejected by deterministic risk guard', expires_at: '2026-11-07T00:00:00Z' }],
+  commands: [{ id: 'sim-command-0-rejected', operation: 'OPEN', symbol: 'BTCUSD', status: 'rejected', note: 'Rejected by deterministic risk guard', expires_at: '2026-11-07T00:00:00Z' }],
   decision: { id: 'sim-decision-0', decision: 'HOLD', rationale: 'No confirmed setup; the simulation never forces an entry.' },
   usage: { used: 2, limit: 20 },
 }

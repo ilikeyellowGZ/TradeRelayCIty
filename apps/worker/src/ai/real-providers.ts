@@ -1,6 +1,6 @@
 import type { AiDecisionInput } from './provider'
 
-export type ProviderName = 'openai' | 'anthropic' | 'xai'
+export type ProviderName = 'groq' | 'gemini'
 export type ModelOpinion = {
   decision: 'HOLD' | 'BUY' | 'SELL'
   symbol: string | null
@@ -12,7 +12,12 @@ export type ModelOpinion = {
   modelScore: number | null
 }
 export type ProviderResult = { opinion: ModelOpinion; provider: ProviderName; model: string; requestId: string | null; inputTokens: number | null; outputTokens: number | null }
-export type ProviderEnv = { AI_PROVIDER: string; AI_MODEL: string; OPENAI_API_KEY?: string; ANTHROPIC_API_KEY?: string; XAI_API_KEY?: string }
+export type ProviderEnv = { AI_PROVIDER: string; AI_MODEL?: string; GROQ_API_KEY?: string; GEMINI_API_KEY?: string; AI_FALLBACK_PROVIDER?: string; AI_FALLBACK_MODEL?: string }
+
+export const GROQ_MODELS = ['openai/gpt-oss-20b', 'qwen/qwen3.8-27b'] as const
+const DEFAULT_GROQ_MODEL = GROQ_MODELS[0]
+export const GEMINI_MODELS = ['gemini-3.8-flash'] as const
+const DEFAULT_GEMINI_MODEL = GEMINI_MODELS[0]
 
 const opinionSchema = {
   type: 'object', additionalProperties: false,
@@ -57,11 +62,18 @@ export function validateModelOpinion(value: unknown, input: AiDecisionInput): Mo
   return opinion
 }
 
-function requireConfig(env: ProviderEnv, provider: ProviderName) {
-  if (!env.AI_MODEL || env.AI_MODEL.length > 120) throw new Error('AI_MODEL_NOT_CONFIGURED')
-  const key = provider === 'openai' ? env.OPENAI_API_KEY : provider === 'anthropic' ? env.ANTHROPIC_API_KEY : env.XAI_API_KEY
-  if (!key) throw new Error('AI_PROVIDER_KEY_MISSING')
-  return key
+function requireGroqConfig(env: ProviderEnv) {
+  const model = env.AI_MODEL || DEFAULT_GROQ_MODEL
+  if (!GROQ_MODELS.some((supported) => supported === model)) throw new Error('AI_MODEL_NOT_SUPPORTED')
+  if (!env.GROQ_API_KEY) throw new Error('AI_PROVIDER_KEY_MISSING')
+  return { model, key: env.GROQ_API_KEY }
+}
+
+function requireGeminiConfig(env: ProviderEnv, fallback: boolean) {
+  const model = (fallback ? env.AI_FALLBACK_MODEL : env.AI_MODEL) || DEFAULT_GEMINI_MODEL
+  if (!GEMINI_MODELS.some((supported) => supported === model)) throw new Error('AI_MODEL_NOT_SUPPORTED')
+  if (!env.GEMINI_API_KEY) throw new Error('AI_PROVIDER_KEY_MISSING')
+  return { model, key: env.GEMINI_API_KEY }
 }
 
 async function readBoundedJson(response: Response) {
@@ -73,62 +85,87 @@ async function readBoundedJson(response: Response) {
   return data as Record<string, any>
 }
 
+async function requestGroq(env: ProviderEnv, input: AiDecisionInput, prompt: string): Promise<ProviderResult> {
+  const { model, key } = requireGroqConfig(env)
+  const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    method: 'POST', signal: AbortSignal.timeout(20_000),
+    headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model,
+      max_completion_tokens: 700,
+      reasoning_effort: 'low',
+      messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: prompt }],
+      response_format: { type: 'json_schema', json_schema: { name: 'trc_decision', strict: true, schema: opinionSchema } },
+    }),
+  })
+  const data = await readBoundedJson(response)
+  const choice = data.choices?.[0]
+  if (choice?.finish_reason === 'length') throw new Error('AI_RESPONSE_INCOMPLETE')
+  if (choice?.message?.refusal) throw new Error('AI_PROVIDER_REFUSAL')
+  if (choice?.finish_reason !== 'stop') throw new Error('AI_PROVIDER_REFUSAL_OR_FAILURE')
+  const content = choice.message?.content
+  if (typeof content !== 'string') throw new Error('AI_INVALID_RESPONSE')
+  let rawOpinion: unknown
+  try { rawOpinion = JSON.parse(content) } catch { throw new Error('AI_INVALID_RESPONSE') }
+
+  return {
+    opinion: validateModelOpinion(rawOpinion, input),
+    provider: 'groq', model,
+    requestId: typeof data.id === 'string' ? data.id : null,
+    inputTokens: Number.isInteger(data.usage?.prompt_tokens) ? data.usage.prompt_tokens : null,
+    outputTokens: Number.isInteger(data.usage?.completion_tokens) ? data.usage.completion_tokens : null,
+  }
+}
+
+async function requestGemini(env: ProviderEnv, input: AiDecisionInput, prompt: string, fallback: boolean): Promise<ProviderResult> {
+  const { model, key } = requireGeminiConfig(env, fallback)
+  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
+    method: 'POST', signal: AbortSignal.timeout(20_000),
+    headers: { 'x-goog-api-key': key, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      systemInstruction: { parts: [{ text: systemPrompt }] },
+      contents: [{ role: 'user', parts: [{ text: prompt }] }],
+      generationConfig: {
+        maxOutputTokens: 2048,
+        thinkingConfig: { thinkingLevel: 'LOW' },
+        responseFormat: { text: { mimeType: 'APPLICATION_JSON', schema: opinionSchema } },
+      },
+    }),
+  })
+  const data = await readBoundedJson(response)
+  const candidate = data.candidates?.[0]
+  if (candidate?.finishReason === 'MAX_TOKENS') throw new Error('AI_RESPONSE_INCOMPLETE')
+  if (data.promptFeedback?.blockReason || ['SAFETY', 'RECITATION', 'BLOCKLIST', 'PROHIBITED_CONTENT', 'SPII'].includes(candidate?.finishReason)) throw new Error('AI_PROVIDER_REFUSAL')
+  if (candidate?.finishReason !== 'STOP') throw new Error('AI_PROVIDER_REFUSAL_OR_FAILURE')
+  const content = candidate.content?.parts?.filter((part: any) => !part.thought && typeof part.text === 'string').map((part: any) => part.text).join('')
+  if (!content) throw new Error('AI_INVALID_RESPONSE')
+  let rawOpinion: unknown
+  try { rawOpinion = JSON.parse(content) } catch { throw new Error('AI_INVALID_RESPONSE') }
+
+  return {
+    opinion: validateModelOpinion(rawOpinion, input),
+    provider: 'gemini', model,
+    requestId: typeof data.responseId === 'string' ? data.responseId : null,
+    inputTokens: Number.isInteger(data.usageMetadata?.promptTokenCount) ? data.usageMetadata.promptTokenCount : null,
+    outputTokens: Number.isInteger(data.usageMetadata?.candidatesTokenCount) ? data.usageMetadata.candidatesTokenCount : null,
+  }
+}
+
 export async function requestRealProvider(env: ProviderEnv, input: AiDecisionInput & { marketSnapshot: unknown; historicalSummary: unknown }): Promise<ProviderResult> {
-  const provider = env.AI_PROVIDER as ProviderName
-  if (!['openai', 'anthropic', 'xai'].includes(provider)) throw new Error('AI_PROVIDER_NOT_SUPPORTED')
-  const key = requireConfig(env, provider)
+  if (env.AI_PROVIDER !== 'groq' && env.AI_PROVIDER !== 'gemini') throw new Error('AI_PROVIDER_NOT_SUPPORTED')
+  if (env.AI_FALLBACK_PROVIDER && (env.AI_PROVIDER !== 'groq' || env.AI_FALLBACK_PROVIDER !== 'gemini')) throw new Error('AI_FALLBACK_PROVIDER_NOT_SUPPORTED')
   const prompt = JSON.stringify({ snapshotId: input.snapshotId, candidate: input.candidate, marketSnapshot: input.marketSnapshot, historicalSummary: input.historicalSummary })
   if (prompt.length > 16_384) throw new Error('AI_INPUT_TOO_LARGE')
-  const signal = AbortSignal.timeout(20_000)
-  let rawOpinion: unknown
-  let requestId: string | null = null
-  let inputTokens: number | null = null
-  let outputTokens: number | null = null
+  if (env.AI_PROVIDER === 'gemini') return requestGemini(env, input, prompt, false)
 
-  if (provider === 'openai') {
-    const response = await fetch('https://api.openai.com/v1/responses', {
-      method: 'POST', signal,
-      headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model: env.AI_MODEL, store: false, max_output_tokens: 700, input: [{ role: 'system', content: systemPrompt }, { role: 'user', content: prompt }], text: { format: { type: 'json_schema', name: 'trc_decision', strict: true, schema: opinionSchema } } }),
-    })
-    const data = await readBoundedJson(response)
-    requestId = typeof data.id === 'string' ? data.id : null
-    inputTokens = Number.isInteger(data.usage?.input_tokens) ? data.usage.input_tokens : null
-    outputTokens = Number.isInteger(data.usage?.output_tokens) ? data.usage.output_tokens : null
-    if (data.status !== 'completed') throw new Error(data.status === 'incomplete' ? 'AI_RESPONSE_INCOMPLETE' : 'AI_PROVIDER_REFUSAL_OR_FAILURE')
-    const textOutput = (data.output ?? []).flatMap((item: any) => item.content ?? []).find((item: any) => item.type === 'output_text')?.text
-    if (typeof textOutput !== 'string') throw new Error('AI_INVALID_RESPONSE')
-    try { rawOpinion = JSON.parse(textOutput) } catch { throw new Error('AI_INVALID_RESPONSE') }
-  } else if (provider === 'anthropic') {
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST', signal,
-      headers: { 'x-api-key': key, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
-      body: JSON.stringify({ model: env.AI_MODEL, max_tokens: 700, system: systemPrompt, messages: [{ role: 'user', content: prompt }], output_config: { format: { type: 'json_schema', schema: opinionSchema } } }),
-    })
-    const data = await readBoundedJson(response)
-    requestId = typeof data.id === 'string' ? data.id : null
-    inputTokens = Number.isInteger(data.usage?.input_tokens) ? data.usage.input_tokens : null
-    outputTokens = Number.isInteger(data.usage?.output_tokens) ? data.usage.output_tokens : null
-    if (data.stop_reason === 'refusal') throw new Error('AI_PROVIDER_REFUSAL')
-    const textOutput = (data.content ?? []).find((item: any) => item.type === 'text')?.text
-    if (typeof textOutput !== 'string') throw new Error('AI_INVALID_RESPONSE')
-    try { rawOpinion = JSON.parse(textOutput) } catch { throw new Error('AI_INVALID_RESPONSE') }
-  } else {
-    const response = await fetch('https://api.x.ai/v1/chat/completions', {
-      method: 'POST', signal,
-      headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model: env.AI_MODEL, max_tokens: 700, messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: prompt }], response_format: { type: 'json_schema', json_schema: { name: 'trc_decision', strict: true, schema: opinionSchema } } }),
-    })
-    const data = await readBoundedJson(response)
-    requestId = typeof data.id === 'string' ? data.id : null
-    inputTokens = Number.isInteger(data.usage?.prompt_tokens) ? data.usage.prompt_tokens : null
-    outputTokens = Number.isInteger(data.usage?.completion_tokens) ? data.usage.completion_tokens : null
-    const choice = data.choices?.[0]
-    if (choice?.finish_reason === 'length') throw new Error('AI_RESPONSE_INCOMPLETE')
-    if (choice?.message?.refusal) throw new Error('AI_PROVIDER_REFUSAL')
-    const content = choice?.message?.content
-    if (typeof content !== 'string') throw new Error('AI_INVALID_RESPONSE')
-    try { rawOpinion = JSON.parse(content) } catch { throw new Error('AI_INVALID_RESPONSE') }
+  try {
+    return await requestGroq(env, input, prompt)
+  } catch (primaryError) {
+    if (env.AI_FALLBACK_PROVIDER !== 'gemini' || (primaryError instanceof Error && primaryError.message === 'AI_PROVIDER_REFUSAL')) throw primaryError
+    try {
+      return await requestGemini(env, input, prompt, true)
+    } catch (fallbackError) {
+      throw new AggregateError([primaryError, fallbackError], 'AI_ALL_PROVIDERS_FAILED')
+    }
   }
-  return { opinion: validateModelOpinion(rawOpinion, input), provider, model: env.AI_MODEL, requestId, inputTokens, outputTokens }
 }

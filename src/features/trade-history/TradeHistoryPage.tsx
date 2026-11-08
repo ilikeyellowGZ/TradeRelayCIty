@@ -13,8 +13,8 @@ const outcomeOptions: [TradeOutcomeKind, string][] = [
   ['broker_rejected', 'Broker rejected'], ['risk_blocked', 'Risk blocked'], ['skipped_hold', 'Skipped / HOLD'], ['order_cancelled', 'Cancelled'], ['order_expired', 'Expired'], ['submission_unknown', 'Awaiting reconciliation'],
 ]
 const statusOptions = ['closed', 'open', 'partially_closed', 'rejected', 'blocked', 'skipped', 'cancelled', 'expired', 'unknown']
-const strategies = ['London continuation', 'Range fade', 'Gold pullback', 'New York reversal', 'Breakout continuation', 'Imported manual trade', 'Fixture strategy']
-const precision: Record<string, number> = { EURUSD: 5, GBPUSD: 5, USDJPY: 3, XAUUSD: 2 }
+const strategies = ['London continuation', 'Range fade', 'Session pullback', 'New York reversal', 'Breakout continuation', 'Imported manual trade', 'Fixture strategy']
+const precision: Record<string, number> = { EURUSD: 5, GBPUSD: 5, AUDUSD: 5, USDJPY: 3, BTCUSD: 2 }
 
 function money(value: number | null, currency: string) {
   return value === null ? '—' : new Intl.NumberFormat(undefined, { style: 'currency', currency }).format(value)

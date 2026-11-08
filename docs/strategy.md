@@ -4,7 +4,7 @@ This document defines a deterministic, educational ICT-inspired baseline. It is 
 
 ## Data and defaults
 
-- Example symbol: `EURUSD`; the connector must map it to an exact broker symbol after reading Market Watch and contract specifications.
+- Market scope: forex currency pairs and cryptocurrencies. The first strategy example is `EURUSD`; `BTCUSD` appears only as a synthetic blocked-attempt fixture. The connector must verify the exact broker symbol, instrument category, contract size, tick values, account-currency conversion, sessions and order capabilities before enabling any pair. Metals, indices and other instruments are outside this scope. Cryptocurrency execution remains unavailable in this build.
 - Signal timeframe: M15. Higher-timeframe context: H1. Only fully closed bars are eligible.
 - ATR length: 14 using Wilder smoothing. Swing confirmation: two bars on each side. A swing at index `i` is confirmed only after bars `i+1` and `i+2` close.
 - Displacement: body size at least `1.2 × ATR(14)` and close in the outer 25% of the candle range in the direction of the body.

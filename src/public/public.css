@@ -90,6 +90,7 @@
 .access-description { margin: 0; color: #d5d5da; font-size: clamp(17px, 1.5vw, 21px); line-height: 1.45; }
 .access-form { display: grid; margin-top: 50px; }
 .access-form label { margin-bottom: 8px; color: #f0f0f3; font-size: 16px; }
+.access-form > input + label { margin-top: 2px; }
 .access-input-wrap { position: relative; }
 .access-input-wrap input, .access-code-input, .access-form > input { width: 100%; height: 58px; padding: 0 60px 0 18px; border: 1px solid #60636b; border-radius: 9px; color: #fff; background: rgb(255 255 255 / 4%); font: inherit; font-size: 18px; }
 .access-form > input { margin-bottom: 24px; padding-right: 18px; }
@@ -99,6 +100,7 @@
 .access-visibility:hover { color: #fff; background: rgb(255 255 255 / 8%); }
 .access-error { margin: 12px 0 0; padding: 12px 14px; border: 1px solid rgb(255 138 132 / 48%); border-radius: 8px; color: #ffe0dc; background: rgb(119 0 29 / 25%); font-size: 14px; line-height: 1.45; }
 .access-submit { width: 100%; min-height: 58px; margin-top: 26px; font-size: 18px; }
+.access-submit:disabled { cursor: wait; opacity: .72; }
 .access-next { display: flex; align-items: center; gap: 10px; margin: 28px 0 0; color: #d6d6dc; font-size: 16px; line-height: 1.5; }
 .access-recovery { display: inline-flex; min-height: 44px; align-items: center; margin-top: 18px; padding: 0; border: 0; color: #78a6ff; background: transparent; font: inherit; font-size: 16px; text-decoration: underline; text-underline-offset: 6px; cursor: pointer; }
 .access-recovery:hover { color: #a6c3ff; }

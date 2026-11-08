@@ -543,6 +543,9 @@ body { background: var(--canvas); color: var(--text); }
 .topbar-date b { color: var(--cream-100); }
 .theme-toggle { display: inline-flex; min-height: 48px; align-items: center; justify-content: center; gap: 8px; padding: 0 17px; border: 1px solid var(--border); border-radius: 999px; color: var(--text); background: var(--surface-raised); font-size: 14px; cursor: pointer; }
 .theme-toggle:hover { border-color: var(--cream-100); }
+.signout-button { display: inline-grid; width: 48px; height: 48px; flex: 0 0 auto; place-items: center; border: 1px solid var(--border); border-radius: 999px; color: var(--text); background: var(--surface-raised); cursor: pointer; }
+.signout-button:hover { border-color: var(--cream-100); }
+.signout-error { margin: 8px clamp(24px, 4vw, 72px) 0; color: var(--negative); font-size: 14px; }
 .content-wrap { width: 100%; max-width: none; margin: 0; padding: 52px clamp(24px, 4vw, 72px) 48px; }
 .overview-composition { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: clamp(24px, 2vw, 36px); margin-bottom: 32px; }
 .overview-hero { grid-column: span 8; display: flex; min-width: 0; flex-direction: column; align-items: flex-start; justify-content: center; padding: 28px 0; }

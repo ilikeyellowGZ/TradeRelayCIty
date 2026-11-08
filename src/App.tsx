@@ -5,13 +5,14 @@ import gsap from 'gsap'
 import {
   Activity, ArrowUpRight, Bell, Bot, BriefcaseBusiness, Check,
   ChevronDown, CircleHelp, Clock3, Command, FlaskConical,
-  Gauge, LayoutDashboard, Menu, MessageCircle, MoreHorizontal, Moon, Sun,
+  Gauge, LayoutDashboard, LogOut, Menu, MessageCircle, MoreHorizontal, Moon, Sun,
   ShieldCheck, SlidersHorizontal, Sparkles, WalletCards, X,
 } from 'lucide-react'
 import { BotifyMark } from './components/BotifyMark'
 import { ScoreboardChart } from './components/ScoreboardChart'
 import { AssistantPage } from './components/AssistantPage'
 import { TradeHistoryPage } from './features/trade-history/TradeHistoryPage'
+import { authClient } from './auth-client'
 
 type SimUser = { id: string; name: string; role: 'owner' | 'member' }
 type SimAccount = { id: string; ownerId: string; label: string; broker: string; environment: 'DEMO'; mode: 'SIMULATED'; connected: boolean; balance: { amount: number; currency: string }; equity: number; dailyPnl: number; positions: { id: string; symbol: string; description: string; side: 'BUY' | 'SELL'; volume: number; entry: number; market: number; pnl: number; source: 'SIMULATED' }[]; events: { id: string; message: string }[]; latestDecision: { decision: string; rationale: string } }
@@ -126,6 +127,7 @@ function App() {
   const [userId, setUserId] = useState('sim-owner')
   const [account, setAccount] = useState<SimAccount | null>(null)
   const [apiError, setApiError] = useState('')
+  const [signOutError, setSignOutError] = useState('')
   const [aiMessage, setAiMessage] = useState('Mock AI is idle; live AI is not configured.')
   const [aiBusy, setAiBusy] = useState(false)
   const dashboardRef = useRef<HTMLDivElement>(null)
@@ -194,6 +196,17 @@ function App() {
     } finally { setAiBusy(false) }
   }
 
+  async function signOut() {
+    setSignOutError('')
+    try {
+      const result = await authClient.signOut()
+      if (result.error) throw new Error('Sign-out request failed.')
+      window.location.replace('/login')
+    } catch {
+      setSignOutError('Could not sign out. Try again.')
+    }
+  }
+
   return (
     <LazyMotion features={domAnimation}>
     <div className="app-shell" ref={dashboardRef}>
@@ -218,8 +231,11 @@ function App() {
             <span className="topbar-date">LAST UPDATE <b>·</b> NOT AVAILABLE</span>
             <button className="icon-button unavailable-control" type="button" disabled aria-label="Notifications unavailable in preview" title="Notifications need the application backend"><Bell size={18} /><i /></button>
             <button className="theme-toggle" type="button" onClick={() => setTheme((value) => value === 'dark' ? 'light' : 'dark')} aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`} title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`}>{theme === 'dark' ? <Sun size={17} /> : <Moon size={17} />}<span>{theme === 'dark' ? 'Light' : 'Dark'}</span></button>
+            <button className="icon-button signout-button" type="button" onClick={() => void signOut()} aria-label="Sign out" title="Sign out"><LogOut size={18} /></button>
           </div>
         </header>
+
+        {signOutError && <p className="signout-error" role="alert">{signOutError}</p>}
 
         <div className="content-wrap">
           {active === 'Overview' ? <>

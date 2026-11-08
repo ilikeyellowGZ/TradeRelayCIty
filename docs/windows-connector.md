@@ -15,7 +15,12 @@ The executable is emitted under `connector/dist/`. PyInstaller bundles Python; i
 
 ## Read-only MT5 MCP diagnostics
 
-In MT5 inspect Tools > Options > MCP and copy the terminal's actual address and Bearer key. The example endpoint is `http://127.0.0.1:22346/mcp`, but the terminal settings are authoritative. Keep MCP loopback-only. Test connection calls `list_tools` and, only when the discovered schema requires no arguments, `get_trading_account_info`. It never invokes any `trade_*` operation. Reported tools are filtered to an explicit read-only allowlist; shell, file editing, filesystem and trading operations are blocked.
+1. Install and sign in to MetaTrader 5 on the same Windows PC as the connector. Use a broker demo account for this preview.
+2. In MT5, open **Tools > Options > MCP**, enable **internal server**, keep the address on `127.0.0.1`, and copy the terminal endpoint and API key. The example endpoint is `http://127.0.0.1:22346/mcp`, but the terminal settings are authoritative. See [MetaTrader's MCP configuration guide](https://www.metatrader5.com/en/terminal/help/mcp_and_ai/configuration).
+3. Build the connector with `./build-windows.ps1` from `connector/`, then run `./dist/TradeRelayCity-Connector/TradeRelayCity-Connector.exe` on that PC. The current package is a folder, not an installer.
+4. In the connector window, enter the website URL, the exact MT5 MCP endpoint and the copied Bearer key. Select **Save local settings**, then **Test connection (read only)**. The key is stored in Windows Credential Manager. Review the returned account information in MT5; the connector still labels account binding unconfirmed.
+
+The test calls `list_tools` and, only when the discovered schema requires no arguments, `get_trading_account_info`. It never invokes any `trade_*` operation. Reported tools are filtered to an explicit read-only allowlist; shell, file editing, filesystem and trading operations are blocked.
 
 ## Current limitations
 

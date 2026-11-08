@@ -22,7 +22,7 @@ export function LandingPage() {
             <div className="landing-hero-copy">
               <p className="public-kicker">YOUR PRIVATE TRADING WORKSPACE</p>
               <h1 id="landing-title">Your trading.<br /><span>A clearer view.</span></h1>
-              <p className="landing-lead">Bring your MT5 accounts, trading decisions and trade history into one considered workspace.</p>
+              <p className="landing-lead">Designed for forex and cryptocurrency markets. Bring your MT5 account context, trading decisions and history into one considered workspace.</p>
               <div className="landing-actions"><a className="public-button public-button--large" href="/login">Sign in to your workspace <ArrowRight aria-hidden="true" size={22} /></a><a className="public-text-link" href="#how-it-works">Explore the workflow</a></div>
               <p className="landing-access-note">Private owner access · No public sign-up</p>
             </div>

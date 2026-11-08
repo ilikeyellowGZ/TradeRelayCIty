@@ -14,5 +14,5 @@ if (-not (Test-Path .dev.vars)) {
   @('SIMULATION_MODE=true','APP_BASE_URL=http://127.0.0.1:5173',"BETTER_AUTH_SECRET=$localSecret") | Set-Content -LiteralPath .dev.vars -Encoding ascii
 }
 npm run db:migrate:local
-Write-Host 'Local simulation is ready. No broker or AI keys are needed.'
+Write-Host 'Local database is ready. Run ./scripts/bootstrap-owner-password.ps1 to set the website password, then npm run dev.'
 if ($Start) { npm run dev }

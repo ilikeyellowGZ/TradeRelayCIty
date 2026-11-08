@@ -45,6 +45,7 @@ Use a 4px base scale. Use the full available desktop width with fluid 4vw side g
 - Account selector, SIMULATED/DEMO/LIVE mode, connector health, last-update context and theme toggle remain visible together.
 - Current, hover, focus-visible, menu-open and theme states are distinct. Mode, connector health and strategy state never share one indicator.
 - Buttons expose `aria-current`; menu and theme controls are keyboard operable and clearly named.
+- The context row includes a labeled sign-out control; sign-out failures stay visible and do not imply the session ended.
 
 ### Theme system
 - Dark navy is the default. Light uses warm off-white and the same brand accents. Persist selection locally and apply it to auth, overview, history, assistant and shared surfaces.
@@ -101,5 +102,5 @@ The landing uses fluid `clamp(16px, 5vw, 80px)` gutters and no overall width cap
 - **States:** Static only. Preview rows are explicitly illustrative and do not imply a live connection.
 
 ### Private access form
-- **Structure:** Full-height desktop split with an editorial image panel and a locally width-limited form panel. On mobile, the form takes priority and the art becomes a compact header.
-- **States:** Password hidden/shown, validation error, service unavailable, pending, and authenticator challenge expiry. Inputs retain visible labels, autocomplete, paste, and field-associated errors. No local browser state grants access.
+- **Structure:** Full-height desktop split with an editorial image panel and a locally width-limited form panel. On mobile, the form takes priority and the art becomes a compact header. The form asks for username and password only.
+- **States:** Password hidden/shown, validation error, service unavailable and pending. Inputs retain visible labels, autocomplete and paste. A server session cookie grants workspace access after successful sign-in; browser state alone cannot grant access.

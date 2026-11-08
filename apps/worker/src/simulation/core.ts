@@ -92,7 +92,7 @@ export function createSimulationState(): SimulationState {
   const symbols = [
     { symbol: 'EURUSD', description: 'Euro / US Dollar', side: 'BUY' as const, entry: 1.0842, market: 1.08634, pnl: 25.68, volume: 0.12 },
     { symbol: 'GBPUSD', description: 'British Pound / US Dollar', side: 'SELL' as const, entry: 1.2715, market: 1.2731, pnl: -12.8, volume: 0.08 },
-    { symbol: 'XAUUSD', description: 'Gold / US Dollar', side: 'BUY' as const, entry: 2331.8, market: 2338.1, pnl: 18.9, volume: 0.03 },
+    { symbol: 'AUDUSD', description: 'Australian Dollar / US Dollar', side: 'BUY' as const, entry: 0.65318, market: 0.65948, pnl: 18.9, volume: 0.03 },
   ]
   const positions: SimulationPosition[] = users.flatMap((user, ownerIndex) => symbols.slice(0, ownerIndex === 0 ? 3 : ownerIndex === 1 ? 1 : 2).map((item, i) => ({
     id: `sim-position-${ownerIndex}-${i}`,
@@ -103,7 +103,7 @@ export function createSimulationState(): SimulationState {
   const commands: SimulationCommand[] = users.flatMap((user, index) => [
     { id: `sim-command-${index}-pending`, ownerId: user.id, accountId: accounts[index].id, status: 'pending' as const, operation: 'OPEN' as const, symbol: 'EURUSD', note: 'Awaiting local risk review', expiresAt: iso(5), attempts: 0 },
     { id: `sim-command-${index}-expired`, ownerId: user.id, accountId: accounts[index].id, status: 'expired' as const, operation: 'OPEN' as const, symbol: 'GBPUSD', note: 'Expired before connector claim', expiresAt: iso(-10), attempts: 0 },
-    { id: `sim-command-${index}-rejected`, ownerId: user.id, accountId: accounts[index].id, status: 'rejected' as const, operation: 'OPEN' as const, symbol: 'XAUUSD', note: 'Rejected by deterministic risk guard', expiresAt: iso(-2), attempts: 1 },
+    { id: `sim-command-${index}-rejected`, ownerId: user.id, accountId: accounts[index].id, status: 'rejected' as const, operation: 'OPEN' as const, symbol: 'BTCUSD', note: 'Rejected by deterministic risk guard', expiresAt: iso(-2), attempts: 1 },
   ])
   return {
     users,

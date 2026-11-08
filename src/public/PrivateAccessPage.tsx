@@ -1,5 +1,6 @@
 import { useState, type FormEvent, type ReactNode } from 'react'
-import { ArrowLeft, ArrowRight, Eye, EyeOff, LockKeyhole } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Eye, EyeOff } from 'lucide-react'
+import { authClient } from '../auth-client'
 import { PublicBrand } from './PublicBrand'
 
 export function AccessFrame({ children }: { children: ReactNode }) {
@@ -12,45 +13,45 @@ export function AccessFrame({ children }: { children: ReactNode }) {
   </div>
 }
 
-function AccessIntro({ verify = false }: { verify?: boolean }) {
-  return <><PublicBrand /><p className="public-kicker access-kicker">PRIVATE OWNER ACCESS</p><h1>{verify ? 'Verify your access.' : 'Welcome back.'}</h1><p className="access-description">{verify ? 'Enter the six-digit code from your authenticator.' : 'Sign in to your TradeRelayCity workspace.'}</p></>
-}
-
 export function PrivateAccessPage() {
+  const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [visible, setVisible] = useState(false)
   const [error, setError] = useState('')
-  const [recoveryOpen, setRecoveryOpen] = useState(false)
-  const challengeExpired = new URLSearchParams(window.location.search).get('notice') === 'challenge-expired'
+  const [busy, setBusy] = useState(false)
 
-  function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    if (!password) { setError('Enter your password.'); return }
-    setError('Private sign-in is temporarily unavailable. The password and authenticator service has not been connected yet.')
-  }
-
-  return <AccessFrame><AccessIntro />{challengeExpired && <p className="access-error" role="alert">Your verification challenge is missing or expired. Enter your password to start again.</p>}<form className="access-form" onSubmit={submit} noValidate>
-    <label htmlFor="owner-password">Password</label>
-    <div className="access-input-wrap"><input id="owner-password" type={visible ? 'text' : 'password'} value={password} onChange={(event) => { setPassword(event.target.value); if (error) setError('') }} autoComplete="current-password" aria-invalid={Boolean(error)} aria-describedby={error ? 'password-error' : undefined} placeholder="Enter your password" /><button type="button" className="access-visibility" onClick={() => setVisible((value) => !value)} aria-label={visible ? 'Hide password' : 'Show password'} aria-pressed={visible}>{visible ? <EyeOff aria-hidden="true" size={22} /> : <Eye aria-hidden="true" size={22} />}</button></div>
-    {error && <p className="access-error" id="password-error" role="alert">{error}</p>}
-    <button className="public-button access-submit" type="submit">Continue <ArrowRight aria-hidden="true" size={24} /></button>
-  </form><p className="access-next"><LockKeyhole aria-hidden="true" size={20} /> Next: verify with your authenticator.</p><button className="access-recovery" type="button" aria-expanded={recoveryOpen} aria-controls="recovery-guidance" onClick={() => setRecoveryOpen((value) => !value)}>Use recovery options</button>{recoveryOpen && <div className="recovery-guidance" id="recovery-guidance"><strong>Recovery is not available in this build.</strong><p>The private owner recovery service is still being implemented. There is no public password reset or email recovery form. Use your trusted administrative channel for access help.</p></div>}</AccessFrame>
-}
-
-// The router mounts this only after a restricted server challenge can be validated.
-export function AuthenticatorPage({ onVerify, expiresAt, busy = false }: { onVerify: (code: string) => Promise<void>; expiresAt?: string; busy?: boolean }) {
-  const [code, setCode] = useState('')
-  const [error, setError] = useState('')
-  const expired = !expiresAt || Date.now() >= Date.parse(expiresAt)
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    if (expired) { setError('This challenge has expired. Return to password entry.'); return }
-    if (!/^\d{6}$/.test(code)) { setError('Enter the six-digit code from your authenticator.'); return }
-    try { await onVerify(code) } catch { setError('Verification could not be completed. Check the code and try again.') }
+    if (!username.trim()) { setError('Enter your username.'); return }
+    if (!password) { setError('Enter your password.'); return }
+    setBusy(true)
+    setError('')
+    try {
+      const result = await authClient.signIn.username({ username: username.trim(), password })
+      if (result.error || !result.data) {
+        setError(result.error?.status === 429 ? 'Too many attempts. Wait a minute and try again.' : 'Username or password is incorrect.')
+        return
+      }
+      window.location.replace('/app')
+    } catch {
+      setError('Sign-in service is unavailable. Try again shortly.')
+    } finally {
+      setBusy(false)
+    }
   }
-  return <AccessFrame><AccessIntro verify /><form className="access-form" onSubmit={(event) => void submit(event)} noValidate>
-    <label htmlFor="authenticator-code">Authenticator code</label><input id="authenticator-code" className="access-code-input" type="text" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength={6} value={code} onChange={(event) => { setCode(event.target.value.replace(/\D/g, '').slice(0, 6)); setError('') }} aria-invalid={Boolean(error)} aria-describedby={error ? 'code-error' : undefined} placeholder="000000" />
-    {error && <p className="access-error" id="code-error" role="alert">{error}</p>}
-    <button className="public-button access-submit" type="submit" disabled={busy || expired}>{busy ? 'Verifying…' : 'Verify and continue'} <ArrowRight aria-hidden="true" size={24} /></button>
-  </form><a className="access-recovery" href="/login">Back to password entry</a></AccessFrame>
+
+  return <AccessFrame>
+    <PublicBrand />
+    <p className="public-kicker access-kicker">PRIVATE OWNER ACCESS</p>
+    <h1>Welcome back.</h1>
+    <p className="access-description">Sign in to your TradeRelayCity workspace.</p>
+    <form className="access-form" onSubmit={(event) => void submit(event)} noValidate>
+      <label htmlFor="owner-username">Username</label>
+      <input id="owner-username" type="text" value={username} onChange={(event) => { setUsername(event.target.value); if (error) setError('') }} autoComplete="username" autoCapitalize="none" spellCheck={false} aria-invalid={Boolean(error) && !username.trim()} placeholder="Enter your username" maxLength={30} />
+      <label htmlFor="owner-password">Password</label>
+      <div className="access-input-wrap"><input id="owner-password" type={visible ? 'text' : 'password'} value={password} onChange={(event) => { setPassword(event.target.value); if (error) setError('') }} autoComplete="current-password" aria-invalid={Boolean(error) && !password} placeholder="Enter your password" /><button type="button" className="access-visibility" onClick={() => setVisible((value) => !value)} aria-label={visible ? 'Hide password' : 'Show password'} aria-pressed={visible}>{visible ? <EyeOff aria-hidden="true" size={22} /> : <Eye aria-hidden="true" size={22} />}</button></div>
+      {error && <p className="access-error" role="alert">{error}</p>}
+      <button className="public-button access-submit" type="submit" disabled={busy}>{busy ? 'Signing in…' : 'Sign in'} <ArrowRight aria-hidden="true" size={24} /></button>
+    </form>
+  </AccessFrame>
 }

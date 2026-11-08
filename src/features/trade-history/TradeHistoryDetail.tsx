@@ -2,7 +2,7 @@ import { useEffect, type ReactNode } from 'react'
 import { AlertTriangle, Clock3, FileText, ShieldCheck, X } from 'lucide-react'
 import { aggregateFills, buildExplanation, redactSensitiveText, type TradeOutcomeV1 } from '../../../apps/worker/src/history/model'
 
-const precision: Record<string, number> = { EURUSD: 5, GBPUSD: 5, USDJPY: 3, XAUUSD: 2 }
+const precision: Record<string, number> = { EURUSD: 5, GBPUSD: 5, AUDUSD: 5, USDJPY: 3, BTCUSD: 2 }
 
 function price(value: number | null, symbol: string) {
   return value === null ? 'Unavailable' : value.toFixed(precision[symbol] ?? 5)

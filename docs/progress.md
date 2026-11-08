@@ -6,10 +6,10 @@ Updated: 2026-11-08
 
 - React/TypeScript/Vite dashboard branded TradeRelayCity, responsive layout, user's Bebas Neue and Roboto fonts, vivid blue/red original candlestick mark, Motion interactions, GSAP entrance animation and reduced-motion handling.
 - Cloudflare Vite Worker + Hono + D1 local simulation. Three isolated seeded users/accounts, fixture positions/events/decisions and command states. API ownership checks use account-scoped SQL and return 404 for foreign records.
-- Better Auth passkey plugin mounted on `/api/auth/*`; official CLI-generated D1 auth schema; one-time hashed invite records, owner bootstrap script, invite validation and enrollment UI. Physical WebAuthn and recovery/revocation flows are not verified/complete.
+- Owner-only Better Auth username/password sign-in mounted on three `/api/auth/*` paths; D1-backed session and rate-limit records; local hidden-prompt owner bootstrap. Public sign-up and all extra verification routes are inactive. Earlier passkey/invitation tables remain in historical migrations but have no active route.
 - Local-only simulation API is guarded by `SIMULATION_MODE=true` and loopback host. Fixture account data, command transitions, deterministic HOLD-only mock AI decision route and per-user/owner request quota are implemented. A Python simulation client can atomically claim and acknowledge a HOLD fixture; it hard-requires loopback, only accepts HOLD, and reports `brokerAction: NONE`. No simulated route can create a broker order.
 - Trade History is a local SIMULATED feature with separate executed/attempt views, versioned outcome and evidence read model, labeled cost/P&L fixtures, account-scoped list/detail/CSV routes, conservative explanations, and a responsive detail drawer. Broker history import and production auth remain unavailable.
-- Provider adapter module contains bounded OpenAI Responses, Anthropic Messages and xAI chat structured-output request implementations, timeout/size checks and candidate-match validation. It is not connected to a production route and has not been called with credentials.
+- Provider adapter module contains bounded Groq chat structured-output requests for GPT OSS 20B and Qwen 3.8 27B, timeout/size checks and candidate-match validation. It is not connected to a production route and has not been called with credentials.
 - Closed-bar ICT-inspired strategy evaluator and Decimal risk precheck. These generate candidate/permission results only. Live entry execution is hard-disabled.
 - CSV M15/H1 backtest runner uses chronologically available closed bars, bounded retracement expiry, spread/slippage/commission price costs and adverse stop-first handling when one candle touches both levels. No market dataset or performance claim is included.
 - Windows Python connector source uses the official MCP SDK, loopback endpoint validation, read-only tool allowlist, single-instance lock, SQLite intent journal and Windows Credential Manager interface. A PyInstaller app directory was built on Windows; it is not an installer and was not interactively launched.
@@ -30,7 +30,7 @@ Updated: 2026-11-08
 
 ## Unverified
 
-- Browser visual QA at 320/768/1280 widths, keyboard-only walkthrough, passkey invitation/sign-in, owner invite creation and session revocation.
+- Full keyboard-only walkthrough, remote username/password sign-in, session expiry and Worker CPU budget.
 - Real-provider adapter requests, provider schema compatibility by selected model, token reservation/reconciliation, actual spend tracking and provider outage handling.
 - Backtest has only a stop-first mechanics test; no real market data was supplied. Dataset splits, contract costs, session/holiday filtering, and economic results remain unvalidated.
 - MT5 MCP handshake/capability schemas, detected account identity, FxPro symbol contract specs, Windows Credential Manager, app runtime and friend installation.
@@ -39,14 +39,14 @@ Updated: 2026-11-08
 
 ## Externally needed later
 
-- Your Cloudflare account, remote D1 database ID, chosen production origin/domain and passkey-auth configuration.
-- Your chosen AI provider, model and API key after the adapter is wired, tested and bounded by real provider usage controls.
+- Your Cloudflare account, remote D1 database ID, chosen production origin/domain and remote owner password bootstrap.
+- A Groq API key after the adapter is wired, tested and bounded by real provider usage controls. GPT OSS 20B is the default model; Qwen 3.8 27B is an optional preview model.
 - Friend's Windows PC, MT5/FxPro demo terminal, local MCP address/key and permission to run read-only discovery followed by deliberate demo-only validation.
 - Broker-confirmed exact symbol mappings, contract/tick values, sessions, commission and historical data for research.
 
 ## Next implementation work
 
-1. Complete invite/passkey and recovery/revocation flows and verify them in a browser.
+1. Verify remote owner username/password login, sign-out and session expiry; define restricted password recovery before deployment.
 2. Implement device pairing, revocable scoped credentials, cloud polling/claim leases, and end-to-end simulated connector flow.
 3. Finish broker adapter interfaces and recovery/reconciliation tests while keeping live order calls disabled until demo checks pass.
 4. Add authenticated real-provider routing with atomic usage reservations and provider cost/limit handling; keep simulation mock-only.
@@ -75,3 +75,24 @@ Updated: 2026-11-08
 - Frontend files: `DESIGN.md`, `index.html`, `public/images/candlestick-still-life.webp`, `src/main.tsx`, `src/App.tsx`, `src/EntryRouter.tsx`, `src/public/PublicBrand.tsx`, `src/public/LandingPage.tsx`, `src/public/PrivateAccessPage.tsx`, `src/public/public.css`. Browser QA artifacts were removed from the repository and `.playwright-cli/` was ignored.
 - Checks: `npm test` passed 33 tests across 6 files; `npm run build` passed; `npx react-doctor@latest --verbose --scope changed` found no new issue in its changed-file scan. Local route and artwork HTTP responses were 200. Playwright in Edge confirmed landing and login rendering, the workflow anchor, header sign-in navigation, field error/visibility/recovery states, `/app` redirect without `.app-shell`, `/login/verify` expiry redirect, and no document-level horizontal overflow at 320, 390, 768, 1024 and 1440px. The computer-use browser host was unavailable, so the installed Playwright CLI was used.
 - Pending: the owner backend must define and implement password challenge, server-approved challenge persistence and expiry, authenticator verification, verified session check, sign-out, and restricted recovery using same-origin secure cookies. Then connect these components to that contract and test successful and failed credentials, replay/expiry, refresh, session expiry and protected API denial. Current shared-tree Supabase Auth work is separate and conflicts with this brief's explicit custom-auth decision; it has not been wired into this frontend.
+
+## 2026-11-08 market scope clarification
+
+- The owner clarified that TradeRelayCity covers forex currency pairs and cryptocurrencies. EURUSD remains the initial strategy example; the existing broker execution path is still disabled. Exact crypto availability, symbol names, contract specifications, pricing precision and sessions require broker verification before execution.
+- Updated `BUILD_BRIEF.md`, `README.md`, `docs/strategy.md` and landing copy to state the scope. Kept the original `TradeRelayCity_Codex_Build_Prompt.md` unchanged as the supplied source brief.
+- Replaced gold simulation positions with AUDUSD and gold rejected attempts with BTCUSD in the in-memory fixtures, trade history display configuration and new `migrations/0007_currency_pair_fixtures.sql`. The migration changes only named `SIMULATED` fixture rows in existing local databases; it does not edit broker records or enable new trading. The original seed migrations remain as historical migration files.
+- Verification: `npm test` passed 35 tests across 7 files; `npm run build` and `git diff --check` passed. An in-memory SQLite run of migrations 0001, 0006 and 0007 confirmed the resulting AUDUSD positions, BTCUSD rejected commands and corrected history. A production preview screenshot at 320px showed the updated landing copy wrapping without visible clipping. No real broker symbol or crypto contract was verified.
+
+## 2026-11-08 Groq provider selection
+
+- Replaced the unused OpenAI/Anthropic/xAI adapter with Groq chat completions, strict JSON schema output, and an explicit model allowlist: `openai/gpt-oss-20b` (default) or `qwen/qwen3.8-27b` (preview). The requested Qwen name was interpreted as Groq's currently listed Qwen 3.8 27B model.
+- The adapter requires `AI_PROVIDER=groq` and `GROQ_API_KEY`. It remains disconnected from the production API until authentication, quota reservation and cost handling are in place. Simulation continues to return deterministic HOLD without a provider call.
+- Verification: `npm test -- --run` passed 37 tests across 7 files; `npm run build` and `git diff --check` passed. Build cleanup left `dist/traderelaycity/.dev.vars` absent. No Groq credential was added or used.
+
+## 2026-11-08 owner username/password entry
+
+- Kept the public landing page and its Sign in links to `/login`. The login form now asks only for username and password and uses Better Auth's username plugin with D1 session cookies. A verified session opens `/app`; a direct unauthenticated visit redirects to `/login`; a visible sign-out control clears the session.
+- Removed the active passkey, invitation, Supabase owner route, authenticator and public sign-up paths. Earlier schema tables remain for migration history but are not reachable through the website API. Added database-backed sign-in rate limiting and migration `0008_owner_username_password.sql` from the generated Better Auth schema delta.
+- The owner username is `iluvpistachioos`. `scripts/bootstrap-owner-password.ps1` prompts locally for the password, hashes it with Better Auth and creates the sole owner record. The password is never written to `.dev.vars`.
+- Local checks: `npm test` passed 42 tests across 7 files; `npm run build` passed; migration 0008 applied. A temporary test owner passed correct-password sign-in, wrong-password rejection, public sign-up denial, session lookup and sign-out. Playwright in Edge confirmed landing Sign in navigation, the two-field login page, unauthenticated `/app` redirect, authenticated workspace load and sign-out. Mobile 375px and desktop 1280px login screenshots had no horizontal overflow. The temporary owner was removed; no owner password has been chosen yet.
+- Still pending: your local owner password setup, remote Cloudflare/D1 configuration, remote sign-in and Worker CPU validation, password recovery design, and real MT5 connection/pairing. The current connector remains read-only and live trading remains disabled.

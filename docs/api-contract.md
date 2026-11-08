@@ -12,9 +12,7 @@ All timestamps are UTC ISO 8601. Simulation endpoints require loopback host plus
 | GET | `/api/simulation/accounts/{id}/trade-history/{outcomeId}` | Read the latest immutable outcome version and evidence | Owner/account scoped; same 404 for absent/foreign account or outcome; never writes to the command ledger |
 | GET | `/api/simulation/accounts/{id}/trade-history/export.csv` | Export filtered simulated history | Owner/account scoped; max 1,000 rows; fixed allowlist of columns; formula-leading text neutralized |
 | POST | `/api/simulation/commands/{id}/transition` | Advance a simulated command state | Owner-filtered conditional D1 update; valid transition graph; no broker operation |
-| GET/POST | `/api/auth/*` | Better Auth endpoints | Passkey plugin mounted; production requires `APP_BASE_URL`, `BETTER_AUTH_SECRET`, and the official generated auth schema before use |
-| GET | `/api/invitations/validate?token=...` | Validate a one-time enrollment link | Hash lookup; returns display name and expiry only |
-| POST | `/api/invitations` | Owner creates member invite | Requires passkey session, exact same-origin `Origin`, owner ID, hourly cap; raw link returned once, token hash stored |
+| GET/POST | `/api/auth/get-session`, `/api/auth/sign-in/username`, `/api/auth/sign-out` | Owner website session | Username/password only; no public sign-up, email sign-in, passkey or authenticator route; requires `APP_BASE_URL`, `BETTER_AUTH_SECRET`, and migration 0008 |
 | POST | `/api/simulation/ai/decision` | Request a fixture AI opinion | Local loopback simulation only; bounded schema, deterministic HOLD-only provider, per-fixture daily request quota, D1 usage ledger; never creates an order |
 | GET/POST | `/api/simulation/chat?accountId={id}` | List or create a simulated account conversation | Loopback-only; persona from validated simulation context; account owner checked; 90-day retention |
 | GET/DELETE | `/api/simulation/chat/{id}` | Read or delete a simulated conversation | Owner-scoped; messages cascade on delete; maximum 50 listed conversations and 100 messages per conversation |

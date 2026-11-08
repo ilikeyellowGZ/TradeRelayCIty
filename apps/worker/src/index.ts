@@ -5,9 +5,8 @@ import { MockAiProvider, type AiCandidate } from './ai/provider'
 import { registerHistoryRoutes } from './history/routes'
 import { answerSimulationQuestion, normalizeChatQuestion, type ChatContext } from './chat/simulation'
 import { listHistory, type HistoryDatabase } from './history/repository'
-import { createOwnerRoutes, type OwnerBindings } from './owner'
 
-type Bindings = { DB: D1Database; SIMULATION_MODE?: string; APP_BASE_URL?: string; BETTER_AUTH_SECRET?: string } & OwnerBindings
+type Bindings = { DB: D1Database; SIMULATION_MODE?: string; APP_BASE_URL?: string; BETTER_AUTH_SECRET?: string }
 type Variables = { simulationUser: string }
 const app = new Hono<{ Bindings: Bindings; Variables: Variables }>()
 const fixture = createSimulationState()
@@ -21,46 +20,11 @@ const allowedTransitions: Record<SimulationCommandStatus, SimulationCommandStatu
 
 app.get('/api/health', (c) => c.json({ status: 'ok', service: 'TradeRelayCity', mode: 'SIMULATED', isLive: false }))
 
-app.route('/api/owner', createOwnerRoutes())
-
 app.on(['GET', 'POST'], '/api/auth/*', (c) => {
   if (!c.env.APP_BASE_URL || !c.env.BETTER_AUTH_SECRET) return c.json({ error: 'Authentication is not configured.' }, 503)
+  const path = c.req.path.slice('/api/auth'.length)
+  if (!((c.req.method === 'GET' && path === '/get-session') || (c.req.method === 'POST' && (path === '/sign-in/username' || path === '/sign-out')))) return c.notFound()
   return createAuth({ DB: c.env.DB, APP_BASE_URL: c.env.APP_BASE_URL, BETTER_AUTH_SECRET: c.env.BETTER_AUTH_SECRET }).handler(c.req.raw)
-})
-
-async function sha256(value: string) {
-  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value))
-  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('')
-}
-
-app.get('/api/invitations/validate', async (c) => {
-  const token = c.req.query('token')
-  if (!token || token.length > 512) return c.json({ valid: false }, 400)
-  const row = await c.env.DB.prepare("SELECT display_name AS displayName, expires_at AS expiresAt FROM invitations WHERE token_hash = ? AND consumed_at IS NULL AND expires_at > datetime('now') LIMIT 1").bind(await sha256(token)).first<{ displayName: string; expiresAt: string }>()
-  return c.json(row ? { valid: true, displayName: row.displayName, expiresAt: row.expiresAt } : { valid: false }, row ? 200 : 404)
-})
-
-app.post('/api/invitations', async (c) => {
-  if (!c.env.APP_BASE_URL || !c.env.BETTER_AUTH_SECRET) return c.json({ error: 'Authentication is not configured.' }, 503)
-  if (c.req.header('origin') !== c.env.APP_BASE_URL) return c.json({ error: 'Invalid origin.' }, 403)
-  const auth = createAuth({ DB: c.env.DB, APP_BASE_URL: c.env.APP_BASE_URL, BETTER_AUTH_SECRET: c.env.BETTER_AUTH_SECRET })
-  const session = await auth.api.getSession({ headers: c.req.raw.headers })
-  if (!session?.user) return c.json({ error: 'Authentication required.' }, 401)
-  const owner = await c.env.DB.prepare("SELECT value FROM app_settings WHERE key = 'owner_user_id'").first<{ value: string }>()
-  if (!owner || owner.value !== session.user.id) return c.json({ error: 'Owner access required.' }, 403)
-  const recent = await c.env.DB.prepare("SELECT COUNT(*) AS count FROM invitations WHERE created_by = ? AND created_at > datetime('now', '-1 hour')").bind(session.user.id).first<{ count: number }>()
-  if ((recent?.count ?? 0) >= 10) return c.json({ error: 'Invitation rate limit reached.' }, 429)
-  const body = await c.req.json<{ email?: string; displayName?: string }>().catch(() => ({}))
-  const email = body.email?.trim().toLowerCase()
-  const displayName = body.displayName?.trim()
-  if (!email || email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || !displayName || displayName.length > 80) return c.json({ error: 'A valid email and display name are required.' }, 400)
-  const bytes = crypto.getRandomValues(new Uint8Array(32))
-  const token = btoa(String.fromCharCode(...bytes)).replaceAll('+', '-').replaceAll('/', '_').replaceAll('=', '')
-  const inviteId = crypto.randomUUID()
-  const userId = crypto.randomUUID()
-  const expiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString()
-  await c.env.DB.prepare('INSERT INTO invitations(id,user_id,email,display_name,role,token_hash,expires_at,created_by) VALUES(?,?,?,?,?,?,?,?)').bind(inviteId, userId, email, displayName, 'member', await sha256(token), expiresAt, session.user.id).run()
-  return c.json({ invitationUrl: `${c.env.APP_BASE_URL}/enroll?token=${encodeURIComponent(token)}`, expiresAt }, 201)
 })
 
 app.use('/api/simulation/*', async (c, next) => {

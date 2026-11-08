@@ -35,6 +35,13 @@ describe('local simulation tenant boundaries', () => {
     expect(overview.balance.currency).toBe('USD')
     expect(overview.positions.every((position) => position.source === 'SIMULATED')).toBe(true)
   })
+
+  it('uses forex positions and a blocked crypto attempt in the market-scope fixtures', () => {
+    const state = createSimulationState()
+
+    expect(new Set(state.positions.map((position) => position.symbol))).toEqual(new Set(['EURUSD', 'GBPUSD', 'AUDUSD']))
+    expect(state.commands.filter((command) => command.status === 'rejected').every((command) => command.symbol === 'BTCUSD')).toBe(true)
+  })
 })
 
 describe('simulation command journal', () => {
