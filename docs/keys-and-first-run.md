@@ -14,7 +14,7 @@
 | MT5 MCP Bearer key | Connector wizard on each Windows PC | Stored with Windows Credential Manager |
 | Device credential | Connector's Credential Manager | Will be issued by pairing, not manually pasted |
 
-The website owner username is `iluvpistachioos`. Set the password through `./scripts/bootstrap-owner-password.ps1` after local migrations, or add `-Remote` after remote migrations. The password does not belong in `.dev.vars`, a Vite variable, chat, or source control.
+Set the website owner username and password through `./scripts/bootstrap-owner-password.ps1` after local migrations, or add `-Remote` after remote migrations. The script defaults to `iluvpistachioos` for a new account, but an existing local owner may use a different username. The password does not belong in `.dev.vars`, a Vite variable, chat, or source control.
 
 For a fresh local setup, run `./scripts/setup.ps1`, then `./scripts/bootstrap-owner-password.ps1`, then `npm run dev`. The dashboard runs synthetic fixtures without any AI or broker keys. The front end never reads provider secrets.
 

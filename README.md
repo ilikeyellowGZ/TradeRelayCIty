@@ -12,7 +12,7 @@ The current local simulation has three isolated personas and D1-backed accounts,
 npm run dev
 ```
 
-Open `http://127.0.0.1:5173`. Sign in as `iluvpistachioos` with the password chosen in the local bootstrap prompt. The local D1 store is in `.wrangler/state`. Switch fixture personas from the account menu. No AI, broker, or Cloudflare API keys are needed for the local fixture UI.
+Open `http://127.0.0.1:5173`. Sign in with the username and password chosen during local owner setup. The local D1 store is in `.wrangler/state`. Switch fixture personas from the account menu. No AI, broker, or Cloudflare API keys are needed for the local fixture UI.
 
 `npm test` runs focused TypeScript simulation tests. `npm run build` creates the Worker and asset bundles. The public landing page offers a Windows connector ZIP download; `connector\build-windows.ps1` builds the app folder from the locked Python requirements. See [connector notes](docs/windows-connector.md) for the download and release steps.
 

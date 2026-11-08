@@ -93,9 +93,9 @@ Updated: 2026-11-09
 
 - Kept the public landing page and its Sign in links to `/login`. The login form now asks only for username and password and uses Better Auth's username plugin with D1 session cookies. A verified session opens `/app`; a direct unauthenticated visit redirects to `/login`; a visible sign-out control clears the session.
 - Removed the active passkey, invitation, Supabase owner route, authenticator and public sign-up paths. Earlier schema tables remain for migration history but are not reachable through the website API. Added database-backed sign-in rate limiting and migration `0008_owner_username_password.sql` from the generated Better Auth schema delta.
-- The owner username is `iluvpistachioos`. `scripts/bootstrap-owner-password.ps1` prompts locally for the password, hashes it with Better Auth and creates the sole owner record. The password is never written to `.dev.vars`.
+- The bootstrap script defaults the owner username to `iluvpistachioos`. `scripts/bootstrap-owner-password.ps1` prompts locally for the password, hashes it with Better Auth and creates the sole owner record. The password is not retained in `.dev.vars`.
 - Local checks: `npm test` passed 42 tests across 7 files; `npm run build` passed; migration 0008 applied. A temporary test owner passed correct-password sign-in, wrong-password rejection, public sign-up denial, session lookup and sign-out. Playwright in Edge confirmed landing Sign in navigation, the two-field login page, unauthenticated `/app` redirect, authenticated workspace load and sign-out. Mobile 375px and desktop 1280px login screenshots had no horizontal overflow. The temporary owner was removed; no owner password has been chosen yet.
-- Still pending: your local owner password setup, remote Cloudflare/D1 configuration, remote sign-in and Worker CPU validation, password recovery design, and real MT5 connection/pairing. The current connector remains read-only and live trading remains disabled.
+- Still pending: remote Cloudflare/D1 configuration, remote sign-in and Worker CPU validation, password recovery design, and real MT5 connection/pairing. The current connector remains read-only and live trading remains disabled.
 
 ## 2026-11-08 public Windows connector download
 
@@ -117,3 +117,8 @@ Updated: 2026-11-09
 - Routed `/app` and its subpaths through the Worker before static assets. The Worker checks the Better Auth session and redirects unsigned requests to `/login`, so the browser route is not the only gate. A valid session receives the root SPA asset with private, no-store caching.
 - Verification: the unsigned and signed-in asset-route tests passed; local HTTP requests to `/app` with no cookie and a made-up cookie returned 302 to `/login`. A temporary local user completed username/password sign-in and received HTTP 200 from `/app`; that user and its session were removed. The username/password endpoint remained available, while passkey and MFA endpoints returned 404. React Doctor reported 100/100 on the changed frontend route. Browser automation was unavailable, so the visual signed-in flow was not retested.
 - Final checks: `npm test` passed 45 tests across 9 files; `npm run build` passed and the post-build cleanup removed staged `.dev.vars`.
+
+## 2026-11-09 local owner setup
+
+- The user supplied one username and password in the ignored local `.dev.vars`. Bootstrapped the local D1 owner with Better Auth's password hash, verified username/password sign-in, authenticated `/app` access, sign-out and subsequent `/app` redirect, then removed the plaintext `USERNAME` and `PASSWORD` lines from `.dev.vars`.
+- Read-only D1 checks confirmed one owner setting, one password hash and zero active sessions after sign-out. This is local only; no Cloudflare D1 database or remote owner has been configured.
