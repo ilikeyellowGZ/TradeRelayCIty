@@ -6,8 +6,3 @@ AI_FALLBACK_PROVIDER=gemini
 AI_FALLBACK_MODEL=gemini-3.8-flash
 # Add GROQ_API_KEY only to your private .dev.vars when real provider routing is enabled.
 # Add GEMINI_API_KEY only to your private .dev.vars when real provider routing is enabled.
-SUPABASE_URL=https://lewmtqhwlofaeutqjroj.supabase.co
-SUPABASE_PUBLISHABLE_KEY=sb_publishable_ItjXpm5MzzhN7tK7BxSzgQ_GamIf-sV
-SUPABASE_JWKS_URL=https://lewmtqhwlofaeutqjroj.supabase.co/auth/v1/.well-known/jwks.json
-# Set SUPABASE_OWNER_USER_ID to the UUID of the sole owner in Supabase Auth.
-# Add SUPABASE_SECRET_KEY privately only if a future server feature needs admin access.

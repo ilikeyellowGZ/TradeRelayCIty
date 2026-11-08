@@ -13,7 +13,7 @@ The connector store throws when Windows Credential Manager is unavailable. It do
 
 ## Safety boundary today
 
-Simulation routes require both local simulation configuration and a loopback request host. All synthetic accounts have `mode=SIMULATED` and `is_live=0` enforced by D1 check constraints. Production deployment must use real Better Auth sessions and database ownership checks; the simulation header is never an identity mechanism outside local development. The connector MCP adapter only enumerates approved read-only operations. Order, shell, file and arbitrary web tools are deny-listed and no trading call is implemented.
+Simulation routes require both local simulation configuration and a loopback request host. All synthetic accounts have `mode=SIMULATED` and `is_live=0` enforced by D1 check constraints. The Worker verifies the Better Auth session before serving `/app` and redirects unsigned requests to `/login`; the browser also checks the session before rendering the workspace. Production account data APIs still need session and database ownership checks; the simulation header is never an identity mechanism outside local development. The connector MCP adapter only enumerates approved read-only operations. Order, shell, file and arbitrary web tools are deny-listed and no trading call is implemented.
 
 Live execution is disabled in code and configuration. Inserting secrets does not enable it. Real broker demo validation, verified MCP schemas, device pairing/revocation, and a reviewed live activation gate are still outstanding. Do not connect a real account to this incomplete connector.
 

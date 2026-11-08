@@ -30,7 +30,7 @@ def store_secret(target: str, secret: str) -> None:
         raise CredentialStoreError(f"Credential Manager write failed (Windows error {ctypes.get_last_error()}).")
 
 def read_secret(target: str) -> str | None:
-    advapi32, kernel32 = _api()
+    advapi32, _ = _api()
     pointer = ctypes.POINTER(CREDENTIAL)()
     if not advapi32.CredReadW(target, 1, 0, ctypes.byref(pointer)):
         code = ctypes.get_last_error()
@@ -42,7 +42,7 @@ def read_secret(target: str) -> str | None:
         raw = ctypes.string_at(cred.CredentialBlob, cred.CredentialBlobSize)
         return raw.decode("utf-16-le")
     finally:
-        kernel32.CredFree(pointer)
+        advapi32.CredFree(pointer)
 
 def delete_secret(target: str) -> None:
     advapi32, _ = _api()

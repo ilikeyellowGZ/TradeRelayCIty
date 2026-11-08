@@ -1,9 +1,15 @@
 import tempfile
 import unittest
+import asyncio
+import sys
+import threading
+import uuid
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 from traderelaycity_connector.journal import Journal
-from traderelaycity_connector.mcp_adapter import FORBIDDEN_TOOLS, READ_ONLY_TOOLS, validate_local_endpoint
+from traderelaycity_connector.mcp_adapter import FORBIDDEN_TOOLS, READ_ONLY_TOOLS, inspect_mt5, validate_local_endpoint
+from traderelaycity_connector.secure_store import delete_secret, read_secret, store_secret
 from traderelaycity_connector.risk import AccountRisk, Candidate, ContractSpec, RiskLimits, evaluate_candidate
 from traderelaycity_connector.strategy import Candle, confirmed_swings, validate_bars
 from traderelaycity_connector.backtest import _simulate
@@ -13,6 +19,39 @@ from decimal import Decimal as D
 from datetime import datetime, timedelta, timezone
 
 class ConnectorBoundaryTests(unittest.TestCase):
+    @unittest.skipUnless(sys.platform == "win32", "Windows Credential Manager only")
+    def test_credential_manager_round_trip(self):
+        target = f"TradeRelayCity-test/{uuid.uuid4()}"
+        store_secret(target, "test-only-secret")
+        try:
+            self.assertEqual(read_secret(target), "test-only-secret")
+        finally:
+            delete_secret(target)
+
+    def test_rejected_mcp_key_has_actionable_error(self):
+        class RejectingHandler(BaseHTTPRequestHandler):
+            def do_GET(self):
+                self.send_response(401)
+                self.end_headers()
+
+            def do_POST(self):
+                self.send_response(401)
+                self.end_headers()
+
+            def log_message(self, *args):
+                pass
+
+        server = ThreadingHTTPServer(("127.0.0.1", 0), RejectingHandler)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        try:
+            with self.assertRaisesRegex(ValueError, "MT5 rejected the MCP key"):
+                asyncio.run(inspect_mt5(f"http://127.0.0.1:{server.server_port}/mcp", "test-only-token"))
+        finally:
+            server.shutdown()
+            server.server_close()
+            thread.join(timeout=2)
+
     def test_simulation_client_is_loopback_only_and_persona_scoped(self):
         self.assertEqual(validate_simulation_base_url("http://127.0.0.1:5173/"), "http://127.0.0.1:5173")
         for url in ("https://127.0.0.1:5173", "http://example.com", "http://127.0.0.1:5173/prefix"):

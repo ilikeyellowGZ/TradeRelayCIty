@@ -6,7 +6,7 @@ import { registerHistoryRoutes } from './history/routes'
 import { answerSimulationQuestion, normalizeChatQuestion, type ChatContext } from './chat/simulation'
 import { listHistory, type HistoryDatabase } from './history/repository'
 
-type Bindings = { DB: D1Database; SIMULATION_MODE?: string; APP_BASE_URL?: string; BETTER_AUTH_SECRET?: string }
+type Bindings = { DB: D1Database; ASSETS: { fetch(request: Request): Promise<Response> }; SIMULATION_MODE?: string; APP_BASE_URL?: string; BETTER_AUTH_SECRET?: string }
 type Variables = { simulationUser: string }
 const app = new Hono<{ Bindings: Bindings; Variables: Variables }>()
 const fixture = createSimulationState()
@@ -25,6 +25,21 @@ app.on(['GET', 'POST'], '/api/auth/*', (c) => {
   const path = c.req.path.slice('/api/auth'.length)
   if (!((c.req.method === 'GET' && path === '/get-session') || (c.req.method === 'POST' && (path === '/sign-in/username' || path === '/sign-out')))) return c.notFound()
   return createAuth({ DB: c.env.DB, APP_BASE_URL: c.env.APP_BASE_URL, BETTER_AUTH_SECRET: c.env.BETTER_AUTH_SECRET }).handler(c.req.raw)
+})
+
+app.on('GET', ['/app', '/app/*'], async (c) => {
+  if (!c.env.APP_BASE_URL || !c.env.BETTER_AUTH_SECRET) return c.text('Workspace authentication is unavailable.', 503)
+  if (!c.req.header('cookie')) return c.redirect('/login', 302)
+  try {
+    const session = await createAuth({ DB: c.env.DB, APP_BASE_URL: c.env.APP_BASE_URL, BETTER_AUTH_SECRET: c.env.BETTER_AUTH_SECRET }).api.getSession({ headers: c.req.raw.headers })
+    if (!session?.user) return c.redirect('/login', 302)
+    const asset = await c.env.ASSETS.fetch(new Request(new URL('/', c.req.url), c.req.raw))
+    const headers = new Headers(asset.headers)
+    headers.set('cache-control', 'private, no-store')
+    return new Response(asset.body, { status: asset.status, statusText: asset.statusText, headers })
+  } catch {
+    return c.text('Workspace authentication is unavailable.', 503)
+  }
 })
 
 app.use('/api/simulation/*', async (c, next) => {

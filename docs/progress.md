@@ -1,6 +1,6 @@
 ﻿# TradeRelayCity progress
 
-Updated: 2026-11-08
+Updated: 2026-11-09
 
 ## Implemented
 
@@ -102,3 +102,18 @@ Updated: 2026-11-08
 - Added a **Download for Windows** button to the public landing page. It serves a same-origin ZIP without requiring website sign-in and labels the connector as a read-only MT5 connection preview.
 - Built a fresh PyInstaller release folder and packaged the complete connector app plus setup README as `public/downloads/TradeRelayCity-Connector-Windows.zip` (24,481,926 bytes). `connector/package_release.py` verifies archive integrity, rejects likely credential files, and enforces the Cloudflare static-asset size limit. Release build and packaging steps are in `docs/windows-connector.md`.
 - Verified `npm run build`, `npm test` (42 passed), React Doctor changed-file scan (no issues), ZIP integrity, matching public/built asset hashes, local HTTP 200 with `application/zip`, and the landing link at 375px with no document overflow. The site has not been deployed; website pairing and broker execution remain unavailable.
+
+## 2026-11-09 connector authentication diagnostic
+
+- Investigated a failed read-only connection test on the development PC. MT5 was listening on `127.0.0.1:22346`, but it returned HTTP 401 for the key saved by the connector. The key matched the local `MT5_API_KEY` value; MT5 rejected it. No key value was printed or added to source control.
+- Fixed the Windows Credential Manager read path to free credentials through `advapi32`, and added a targeted HTTP 401 message after an MCP handshake failure. Added regression tests for a Credential Manager round trip and a rejecting local MCP server.
+- Rebuilt the Windows release folder and website ZIP. The owner still needs to copy the current terminal MCP key from MT5 and repeat the read-only test. Website pairing and broker execution remain unavailable.
+- Verification: 12 connector unit tests passed, including the two new regressions; the real local MT5 endpoint returned the new HTTP 401 diagnostic without exposing the key; PyInstaller and `npm run build` passed; ZIP integrity passed, the built website asset hash matches the public ZIP, and the build cleanup removed staged `.dev.vars`. An executable startup smoke test was blocked by Windows Application Control, so the refreshed `.exe` has not been interactively launched here.
+
+## 2026-11-09 password-only website clarification
+
+- Kept the landing page, username/password login, D1-backed session check, and protected `/app` route. Old `/login/*` paths return to the password form; the website does not open the workspace without a session.
+- Removed the unused Supabase owner/authenticator modules and obsolete passkey/Supabase client packages. The old Supabase SQL files remain historical and are not connected to the active Worker. The private `.dev.vars` file was not changed.
+- Routed `/app` and its subpaths through the Worker before static assets. The Worker checks the Better Auth session and redirects unsigned requests to `/login`, so the browser route is not the only gate. A valid session receives the root SPA asset with private, no-store caching.
+- Verification: the unsigned and signed-in asset-route tests passed; local HTTP requests to `/app` with no cookie and a made-up cookie returned 302 to `/login`. A temporary local user completed username/password sign-in and received HTTP 200 from `/app`; that user and its session were removed. The username/password endpoint remained available, while passkey and MFA endpoints returned 404. React Doctor reported 100/100 on the changed frontend route. Browser automation was unavailable, so the visual signed-in flow was not retested.
+- Final checks: `npm test` passed 45 tests across 9 files; `npm run build` passed and the post-build cleanup removed staged `.dev.vars`.

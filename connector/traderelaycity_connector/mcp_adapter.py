@@ -37,20 +37,35 @@ async def inspect_mt5(endpoint: str, bearer_key: str) -> McpDiagnostics:
 
     timeout = httpx2.Timeout(30.0, read=60.0)
     async with httpx2.AsyncClient(headers={"Authorization": f"Bearer {bearer_key}"}, timeout=timeout) as http_client:
-        transport = streamable_http_client(endpoint, http_client=http_client)
-        async with Client(transport) as client:
-            listing = await client.list_tools()
-            discovered = tuple(sorted(tool.name for tool in listing.tools))
-            allowed = tuple(name for name in discovered if name in READ_ONLY_TOOLS)
-            blocked = tuple(name for name in discovered if name in FORBIDDEN_TOOLS)
-            summary = "MCP connected; read-only capabilities enumerated. Account binding remains unconfirmed."
-            if "get_trading_account_info" in allowed:
-                schema = next(tool.inputSchema for tool in listing.tools if tool.name == "get_trading_account_info")
-                if not schema.get("required"):
-                    result = await client.call_tool("get_trading_account_info", {})
-                    summary = "Account info read succeeded. Review the returned broker, login, server, currency, and demo/live flag before binding."
-                    if result.isError:
-                        summary = "MCP tool discovery succeeded, but the read-only account info call returned an error."
-                else:
-                    summary = "Account info capability is present but requires unsupported parameters; no order tools were called."
-            return McpDiagnostics(endpoint, discovered, allowed, blocked, summary)
+        try:
+            transport = streamable_http_client(endpoint, http_client=http_client)
+            async with Client(transport) as client:
+                listing = await client.list_tools()
+                discovered = tuple(sorted(tool.name for tool in listing.tools))
+                allowed = tuple(name for name in discovered if name in READ_ONLY_TOOLS)
+                blocked = tuple(name for name in discovered if name in FORBIDDEN_TOOLS)
+                summary = "MCP connected; read-only capabilities enumerated. Account binding remains unconfirmed."
+                if "get_trading_account_info" in allowed:
+                    schema = next(tool.inputSchema for tool in listing.tools if tool.name == "get_trading_account_info")
+                    if not schema.get("required"):
+                        result = await client.call_tool("get_trading_account_info", {})
+                        summary = "Account info read succeeded. Review the returned broker, login, server, currency, and demo/live flag before binding."
+                        if result.isError:
+                            summary = "MCP tool discovery succeeded, but the read-only account info call returned an error."
+                    else:
+                        summary = "Account info capability is present but requires unsupported parameters; no order tools were called."
+                return McpDiagnostics(endpoint, discovered, allowed, blocked, summary)
+        except Exception as error:
+            # The MCP transport replaces an HTTP 401 with a generic JSON-RPC error.
+            # Probe only after failure so successful handshakes are unchanged.
+            try:
+                response = await http_client.get(endpoint, headers={"Accept": "text/event-stream"})
+            except httpx2.HTTPError:
+                pass
+            else:
+                if response.status_code == 401:
+                    raise ValueError(
+                        "MT5 rejected the MCP key (HTTP 401). Copy the current terminal MCP API key "
+                        "from MT5 > Tools > Options > MCP, save it in the connector, and retry."
+                    ) from error
+            raise

@@ -38,6 +38,8 @@ The packaging script checks ZIP integrity, rejects credential files, and enforce
 
 The test calls `list_tools` and, only when the discovered schema requires no arguments, `get_trading_account_info`. It never invokes any `trade_*` operation. Reported tools are filtered to an explicit read-only allowlist; shell, file editing, filesystem and trading operations are blocked.
 
+If the test reports **HTTP 401**, MT5 rejected the saved key. In **Tools > Options > MCP**, copy the current key for the **terminal** endpoint and paste only the token into the connector's Bearer key field (omit `Bearer `). Save and retry. The connector does not read `MT5_API_KEY` from `.dev.vars`. If the MCP tab or internal server is missing, update MT5 and confirm the internal server is enabled before retrying. After downloading an updated ZIP, close the old connector and extract the new folder before launching it.
+
 ## Current limitations
 
 Pairing, polling, capability-to-account binding, multi-instance lock, account rebinding, broker adapter execution and offline reconciliation still need implementation and tests. Do not enable broker demo or live execution. Closing the connector stops local work but does not close MT5 positions.

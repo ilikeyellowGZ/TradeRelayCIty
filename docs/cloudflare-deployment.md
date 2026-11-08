@@ -21,7 +21,7 @@ The local database is stored under `.wrangler/state` (ignored). `scripts/setup.p
 5. Apply reviewed migrations with `npm run db:migrate:remote`.
 6. Run `./scripts/bootstrap-owner-password.ps1 -Remote` in PowerShell. Enter and confirm your chosen password in the hidden prompts. The script creates the owner account with username `iluvpistachioos` and stores only Better Auth's password hash in D1. It will not replace an existing owner.
 7. After checking local login, session expiry, sign-out, and Worker CPU usage, deploy using `npm run deploy`.
-8. Confirm the deployed `/api/health` response, then confirm simulation routes return 404 on the deployed hostname.
+8. Confirm the deployed `/api/health` response, an unsigned `/app` request redirects to `/login`, and simulation routes return 404 on the deployed hostname.
 
 Do not set `SIMULATION_MODE=true` in production. `wrangler deploy` must not be run until the D1 ID is replaced, migrations are applied, the owner credential is set, and remote login behavior is verified. The Worker is not a resident trading process: connector polling happens from each user's PC.
 

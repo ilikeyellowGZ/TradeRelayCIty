@@ -31,7 +31,7 @@ export default function EntryRouter() {
 
   if (path === '/') return <LandingPage />
   if (path === '/login') return <PrivateAccessPage />
-  if (path === '/login/verify' || path === '/login/enroll') return <RedirectToLogin />
+  if (path.startsWith('/login/')) return <RedirectToLogin />
   if (path === '/app' || path.startsWith('/app/')) return <ProtectedWorkspace />
   if (path === '/enroll') return <RedirectToLogin />
   return <LandingPage />

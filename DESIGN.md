@@ -104,4 +104,4 @@ The landing uses fluid `clamp(16px, 5vw, 80px)` gutters and no overall width cap
 
 ### Private access form
 - **Structure:** Full-height desktop split with an editorial image panel and a locally width-limited form panel. On mobile, the form takes priority and the art becomes a compact header. The form asks for username and password only.
-- **States:** Password hidden/shown, validation error, service unavailable and pending. Inputs retain visible labels, autocomplete and paste. A server session cookie grants workspace access after successful sign-in; browser state alone cannot grant access.
+- **States:** Password hidden/shown, validation error, service unavailable and pending. Inputs retain visible labels, autocomplete and paste. A server session cookie grants workspace access after successful sign-in; the Worker checks that session before serving `/app`.
