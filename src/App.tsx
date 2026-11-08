@@ -1,4 +1,4 @@
-﻿import { useCallback, useEffect, useRef, useState } from 'react'
+﻿import { useEffect, useRef, useState } from 'react'
 import { AnimatePresence, LazyMotion, domAnimation, m } from 'motion/react'
 import { useGSAP } from '@gsap/react'
 import gsap from 'gsap'
@@ -10,7 +10,6 @@ import {
 } from 'lucide-react'
 import { BotifyMark } from './components/BotifyMark'
 import { ScoreboardChart } from './components/ScoreboardChart'
-import { AuthGate } from './components/AuthGate'
 import { AssistantPage } from './components/AssistantPage'
 import { TradeHistoryPage } from './features/trade-history/TradeHistoryPage'
 
@@ -118,21 +117,6 @@ function SectionPreview({ active }: { active: string }) {
 }
 
 function App() {
-  const [authState, setAuthState] = useState<'checking' | 'local' | 'signed-in' | 'signed-out'>('checking')
-  const finishSignIn = useCallback(() => {
-    setAuthState('signed-in')
-    if (window.location.pathname === '/enroll') window.history.replaceState({}, '', '/')
-  }, [])
-  const localHost = ['localhost', '127.0.0.1', '::1'].includes(window.location.hostname)
-  useEffect(() => {
-    if (localHost) { setAuthState('local'); return }
-    let cancelled = false
-    void import('./auth-client').then(({ authClient }) => authClient.getSession()).then((result) => {
-      if (!cancelled) setAuthState(result.data?.user ? 'signed-in' : 'signed-out')
-    }).catch(() => { if (!cancelled) setAuthState('signed-out') })
-    return () => { cancelled = true }
-  }, [localHost])
-
   const [active, setActive] = useState('Overview')
   const [theme, setTheme] = useState<'light' | 'dark'>(() => window.localStorage.getItem('trc-theme') === 'light' ? 'light' : 'dark')
   const [drawerOpen, setDrawerOpen] = useState(false)
@@ -209,9 +193,6 @@ function App() {
       setAiMessage(error instanceof Error ? error.message : 'Mock AI is unavailable.')
     } finally { setAiBusy(false) }
   }
-
-  if (window.location.pathname === '/enroll' || authState === 'signed-out') return <AuthGate onSignedIn={finishSignIn} />
-  if (authState === 'checking') return <main className="auth-screen"><div className="auth-card">Loading secure sessionâ€¦</div></main>
 
   return (
     <LazyMotion features={domAnimation}>

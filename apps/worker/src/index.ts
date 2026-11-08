@@ -5,8 +5,9 @@ import { MockAiProvider, type AiCandidate } from './ai/provider'
 import { registerHistoryRoutes } from './history/routes'
 import { answerSimulationQuestion, normalizeChatQuestion, type ChatContext } from './chat/simulation'
 import { listHistory, type HistoryDatabase } from './history/repository'
+import { createOwnerRoutes, type OwnerBindings } from './owner'
 
-type Bindings = { DB: D1Database; SIMULATION_MODE?: string; APP_BASE_URL?: string; BETTER_AUTH_SECRET?: string }
+type Bindings = { DB: D1Database; SIMULATION_MODE?: string; APP_BASE_URL?: string; BETTER_AUTH_SECRET?: string } & OwnerBindings
 type Variables = { simulationUser: string }
 const app = new Hono<{ Bindings: Bindings; Variables: Variables }>()
 const fixture = createSimulationState()
@@ -19,6 +20,8 @@ const allowedTransitions: Record<SimulationCommandStatus, SimulationCommandStatu
 }
 
 app.get('/api/health', (c) => c.json({ status: 'ok', service: 'TradeRelayCity', mode: 'SIMULATED', isLive: false }))
+
+app.route('/api/owner', createOwnerRoutes())
 
 app.on(['GET', 'POST'], '/api/auth/*', (c) => {
   if (!c.env.APP_BASE_URL || !c.env.BETTER_AUTH_SECRET) return c.json({ error: 'Authentication is not configured.' }, 503)

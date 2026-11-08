@@ -1,0 +1,38 @@
+- generic [active] [ref=f7e1]:
+  - generic [ref=f7e3]:
+    - complementary "TradeRelayCity private workspace" [ref=f7e4]:
+      - link "TradeRelayCity home" [ref=f7e6] [cursor=pointer]:
+        - /url: /
+        - generic [ref=f7e7]: TradeRelayCity
+      - generic [ref=f7e8]:
+        - paragraph [ref=f7e9]: YOUR PRIVATE WORKSPACE
+        - heading "A clear view. A considered next move." [level=2] [ref=f7e10]: A clear view.A considered next move.
+        - paragraph [ref=f7e11]: Review decisions. Keep your risk visible.
+    - main [ref=f7e12]:
+      - link "Back to home" [ref=f7e13] [cursor=pointer]:
+        - /url: /
+      - generic [ref=f7e16]:
+        - link "TradeRelayCity home" [ref=f7e17] [cursor=pointer]:
+          - /url: /
+          - img "TradeRelayCity candlestick mark" [ref=f7e19]
+          - generic [ref=f7e24]: TradeRelayCity
+        - paragraph [ref=f7e25]: PRIVATE OWNER ACCESS
+        - heading "Welcome back." [level=1] [ref=f7e26]
+        - paragraph [ref=f7e27]: Sign in to your TradeRelayCity workspace.
+        - alert [ref=f7e28]: Your verification challenge is missing or expired. Enter your password to start again.
+        - generic [ref=f7e29]:
+          - generic [ref=f7e30]: Email
+          - textbox "Email" [ref=f7e31]:
+            - /placeholder: Owner email
+          - generic [ref=f7e32]: Password
+          - generic [ref=f7e33]:
+            - textbox "Password" [ref=f7e34]:
+              - /placeholder: Enter your password
+            - button "Show password" [ref=f7e35] [cursor=pointer]
+          - button "Continue" [ref=f7e39] [cursor=pointer]
+        - paragraph [ref=f7e42]: "Next: verify with your authenticator."
+        - button "Use recovery options" [ref=f7e47] [cursor=pointer]
+      - paragraph [ref=f7e48]: Private access. No public sign-up.
+  - generic [ref=f7e50]:
+    - button "Copy element" [ref=f7e55] [cursor=pointer]
+    - button "Collapse toolbar" [expanded] [ref=f7e59] [cursor=pointer]

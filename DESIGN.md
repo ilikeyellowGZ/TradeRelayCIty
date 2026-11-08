@@ -68,3 +68,38 @@ Use existing Motion and GSAP patterns. Transitions are short and state-based; fi
 
 ## 7. Depth & Texture
 Use a faint non-interactive dot texture and restrained ambient tonal shifts over navy, never behind dense text. Separate panels with subtle borders and short shadows. Retain quiet chart axes, thin lines, round-ended bars and cream highlights. Burgundy remains a brand treatment, not a semantic loss color.
+
+## 8. Public entry pages (landing and private access)
+
+The supplied landing and login images are the visual contract for these pages. They use the existing self-hosted Inter and JetBrains Mono and the selected candlestick mark. A separate generated still-life asset supplies copper-lit, dimensional candlesticks without embedding page text or controls. The pages retain a dark appearance regardless of the workspace theme setting.
+
+| Role | Token | Value | Usage |
+|---|---|---|---|
+| Public canvas | `--public-bg` | `#111216` | Landing and form base |
+| Public canvas deep | `--public-deep` | `#0C0D11` | Form area and footer |
+| Public text | `--public-ink` | `#F7F5F0` | Headings and controls |
+| Public muted | `--public-muted` | `#D0D0D4` | Supporting copy |
+| Public cream | `--public-cream` | `#D9C9A9` | Hero emphasis and closing surface |
+| Public copper | `--public-copper` | `#BA7150` | Artwork atmosphere only |
+| Public burgundy | `--public-burgundy` | `#77001D` | Closing link and preview accent |
+| Public action | `--public-blue` | `#245BE8` | Primary CTA |
+| Public action hover | `--public-blue-hover` | `#3770FF` | Hover state |
+| Public focus | `--public-focus` | `#A9C2FF` | Keyboard outline |
+
+The landing uses fluid `clamp(16px, 5vw, 80px)` gutters and no overall width cap. Its desktop hero is an asymmetric text and art split; its workflow row becomes a vertical editorial sequence on narrow screens. Display type scales from 44px on phones to about 80px on desktops. Local copy widths remain readable.
+
+### Public wordmark
+- **Structure:** Existing `BotifyMark` plus real TradeRelayCity text.
+- **States:** Default, focus when linked. The mark remains decorative within the linked name.
+
+### Public CTA and text link
+- **Structure:** Real anchor with at least 44px target, arrow icon where shown.
+- **States:** Default, hover, pressed, focus-visible. Blue fill is reserved for primary actions; secondary actions are underlined.
+
+### Illustration and preview panel
+- **Structure:** Decorative still life image hidden from assistive technology; real HTML preview list layered above it.
+- **States:** Static only. Preview rows are explicitly illustrative and do not imply a live connection.
+
+### Private access form
+- **Structure:** Full-height desktop split with an editorial image panel and a locally width-limited form panel. On mobile, the form takes priority and the art becomes a compact header.
+- **States:** Password hidden/shown, validation error, service unavailable, pending, and authenticator challenge expiry. Inputs retain visible labels, autocomplete, paste, and field-associated errors. No local browser state grants access.

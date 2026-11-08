@@ -1,0 +1,33 @@
+- generic [ref=f3e3]:
+  - complementary "TradeRelayCity private workspace" [ref=f3e4]:
+    - link "TradeRelayCity home" [ref=f3e6] [cursor=pointer]:
+      - /url: /
+      - generic [ref=f3e7]: TradeRelayCity
+    - generic [ref=f3e8]:
+      - paragraph [ref=f3e9]: YOUR PRIVATE WORKSPACE
+      - heading "A clear view. A considered next move." [level=2] [ref=f3e10]: A clear view.A considered next move.
+      - paragraph [ref=f3e11]: Review decisions. Keep your risk visible.
+  - main [ref=f3e12]:
+    - link "Back to home" [ref=f3e13] [cursor=pointer]:
+      - /url: /
+    - generic [ref=f3e16]:
+      - link "TradeRelayCity home" [ref=f3e17] [cursor=pointer]:
+        - /url: /
+        - img "TradeRelayCity candlestick mark" [ref=f3e19]
+        - generic [ref=f3e24]: TradeRelayCity
+      - paragraph [ref=f3e25]: PRIVATE OWNER ACCESS
+      - heading "Welcome back." [level=1] [ref=f3e26]
+      - paragraph [ref=f3e27]: Sign in to your TradeRelayCity workspace.
+      - generic [ref=f3e28]:
+        - generic [ref=f3e29]: Email
+        - textbox "Email" [ref=f3e30]:
+          - /placeholder: Owner email
+        - generic [ref=f3e31]: Password
+        - generic [ref=f3e32]:
+          - textbox "Password" [ref=f3e33]:
+            - /placeholder: Enter your password
+          - button "Show password" [ref=f3e34] [cursor=pointer]
+        - button "Continue" [ref=f3e38] [cursor=pointer]
+      - paragraph [ref=f3e41]: "Next: verify with your authenticator."
+      - button "Use recovery options" [ref=f3e46] [cursor=pointer]
+    - paragraph [ref=f3e47]: Private access. No public sign-up.

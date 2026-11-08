@@ -1,0 +1,63 @@
+- generic [ref=e3]:
+  - generic [ref=e4]:
+    - banner [ref=e5]:
+      - link "TradeRelayCity home" [ref=e6] [cursor=pointer]:
+        - /url: /
+        - img "TradeRelayCity candlestick mark" [ref=e8]
+        - generic [ref=e13]: TradeRelayCity
+      - navigation "Public navigation" [ref=e14]:
+        - link "Workspace" [ref=e15] [cursor=pointer]:
+          - /url: "#workspace"
+        - link "How it works" [ref=e16] [cursor=pointer]:
+          - /url: "#how-it-works"
+      - link "Sign in" [ref=e17] [cursor=pointer]:
+        - /url: /login
+    - main [ref=e18]:
+      - region [ref=e19]:
+        - generic [ref=e20]:
+          - paragraph [ref=e21]: YOUR PRIVATE TRADING WORKSPACE
+          - heading "Your trading. A clearer view." [level=1] [ref=e22]: Your trading.A clearer view.
+          - paragraph [ref=e23]: Bring your MT5 accounts, trading decisions and trade history into one considered workspace.
+          - generic [ref=e24]:
+            - link "Sign in to your workspace" [ref=e25] [cursor=pointer]:
+              - /url: /login
+            - link "Explore the workflow" [ref=e28] [cursor=pointer]:
+              - /url: "#how-it-works"
+          - paragraph [ref=e29]: Private owner access · No public sign-up
+        - generic:
+          - generic "Illustrative workspace preview":
+            - text: WORKSPACE PREVIEW
+            - list:
+              - listitem: No account connected
+              - listitem: Connector offline
+              - listitem: New entries paused
+          - generic: Illustrative preview
+      - region "How it works" [ref=e30]:
+        - article [ref=e31]:
+          - generic [ref=e32]: 01 /
+          - generic [ref=e33]:
+            - heading "Connect locally" [level=2] [ref=e34]
+            - paragraph [ref=e35]: Pair the Windows connector with your MT5 terminal.
+        - article [ref=e36]:
+          - generic [ref=e37]: 02 /
+          - generic [ref=e38]:
+            - heading "Define your limits" [level=2] [ref=e39]
+            - paragraph [ref=e40]: Keep strategy settings and risk controls in view.
+        - article [ref=e41]:
+          - generic [ref=e42]: 03 /
+          - generic [ref=e43]:
+            - heading "Review each decision" [level=2] [ref=e44]
+            - paragraph [ref=e45]: Follow signals, execution states and trade history.
+  - generic [ref=e46]:
+    - heading "Your account. Your limits. Your call." [level=2] [ref=e47]
+    - link "Open your workspace" [ref=e48] [cursor=pointer]:
+      - /url: /login
+  - contentinfo [ref=e51]:
+    - link "TradeRelayCity home" [ref=e52] [cursor=pointer]:
+      - /url: /
+      - img "TradeRelayCity candlestick mark" [ref=e54]
+      - generic [ref=e59]: TradeRelayCity
+    - generic [ref=e60]: Private access
+    - link "Sign in" [ref=e61] [cursor=pointer]:
+      - /url: /login
+    - generic [ref=e62]: Trading involves risk.

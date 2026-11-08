@@ -1,0 +1,7 @@
+.access-form > input { width: 100%; height: 58px; margin-bottom: 20px; padding: 0 18px; border: 1px solid #60636b; border-radius: 9px; color: #fff; background: rgb(255 255 255 / 4%); font: inherit; font-size: 18px; }
+.access-form > input::placeholder { color: #9a9ba3; }
+.access-form > input:focus-visible { outline: 2px solid #8fb1ff; outline-offset: 2px; }
+.owner-qr { display: block; width: min(220px, 100%); height: auto; margin: 20px 0; padding: 12px; border-radius: 12px; background: #fff; }
+.owner-secret { margin: 10px 0 16px; color: #d6d6dc; }
+.owner-secret code { display: block; overflow-wrap: anywhere; margin-top: 8px; color: #fff; }
+.owner-workspace-note { margin-top: 24px; color: #d6d6dc; font-size: 14px; line-height: 1.5; }
