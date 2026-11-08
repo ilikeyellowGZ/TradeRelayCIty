@@ -1,9 +1,6 @@
-import { lazy, Suspense, useEffect } from 'react'
+import { useEffect } from 'react'
 import { LandingPage } from './public/LandingPage'
 import { PrivateAccessPage } from './public/PrivateAccessPage'
-import { OwnerMfaPage, OwnerWorkspacePage } from './public/OwnerPages'
-
-const DemoApp = lazy(() => import('./App'))
 
 function RedirectToLogin({ challengeExpired = false }: { challengeExpired?: boolean }) {
   useEffect(() => { window.location.replace(challengeExpired ? '/login?notice=challenge-expired' : '/login') }, [challengeExpired])
@@ -16,9 +13,8 @@ export default function EntryRouter() {
 
   if (path === '/') return <LandingPage />
   if (path === '/login') return <PrivateAccessPage />
-  if (path === '/login/verify' || path === '/login/enroll') return <OwnerMfaPage />
-  if (path === '/app/demo' && ['localhost', '127.0.0.1', '::1'].includes(window.location.hostname)) return <Suspense fallback={<main className="route-loading">Loading simulation…</main>}><DemoApp /></Suspense>
-  if (path === '/app') return <OwnerWorkspacePage />
+  if (path === '/login/verify' || path === '/login/enroll') return <RedirectToLogin challengeExpired />
+  if (path === '/app' || path.startsWith('/app/')) return <RedirectToLogin />
   if (path === '/enroll') return <RedirectToLogin />
   return <LandingPage />
 }

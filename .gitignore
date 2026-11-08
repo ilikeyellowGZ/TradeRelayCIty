@@ -12,3 +12,4 @@ supabase/.temp/
 **/dist/
 **/__pycache__/
 .wrangler/
+.playwright-cli/
