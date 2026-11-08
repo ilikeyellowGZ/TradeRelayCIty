@@ -96,6 +96,7 @@ The landing uses fluid `clamp(16px, 5vw, 80px)` gutters and no overall width cap
 ### Public CTA and text link
 - **Structure:** Real anchor with at least 44px target, arrow icon where shown.
 - **States:** Default, hover, pressed, focus-visible. Blue fill is reserved for primary actions; secondary actions are underlined.
+- The Windows connector download uses a distinct outlined secondary button beside sign-in. Its label names Windows and the nearby note states that the package is a read-only preview. The link points to a same-origin ZIP asset and requires no website session.
 
 ### Illustration and preview panel
 - **Structure:** Decorative still life image hidden from assistive technology; real HTML preview list layered above it.

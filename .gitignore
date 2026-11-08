@@ -10,6 +10,8 @@ supabase/.temp/
 **/.venv/
 **/build/
 **/dist/
+connector/release-build/
+connector/release-dist/
 **/__pycache__/
 .wrangler/
 .playwright-cli/
