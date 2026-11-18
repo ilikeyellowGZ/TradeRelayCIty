@@ -166,3 +166,9 @@ Updated: 2026-11-09
 - Applied migration 0012 to staging D1 and deployed Worker version `8bc7438b-e2fa-4208-aa43-102565ac22ed` from the generated staging configuration. The binding targets `traderelaycity-staging`; the build cleanup removed staged `.dev.vars`.
 - Remote smoke checks returned 200 for `/api/health` (`BROKER_READ_ONLY`, `isLive=false`), 302 for unsigned `/app`, 401 for unsigned `/api/broker/ai-capabilities`, and 404 for `/api/simulation/accounts`. No staging migration remains pending.
 - Staging has no configured broker AI provider/model/key, so its AI opt-in control remains unavailable. No live model call or connected MT5 snapshot was verified.
+
+## 2026-11-18 classified symbol accuracy fix
+
+- Classified position questions now match the exact symbol accepted from the owner-bound snapshot. If `EURUSD` and `EURUSD.a` are both open, each answer includes only the selected symbol and names that symbol accurately.
+- All 66 TypeScript tests passed, including the suffix-symbol regression, and the staging build passed. Its generated configuration targeted `traderelaycity-staging` and the staged `.dev.vars` file was removed before deployment.
+- Deployed staging Worker version `c7316017-0f66-41fc-bb08-3826189df55c`. Remote smoke checks returned 200 for `/api/health` (`BROKER_READ_ONLY`, `isLive=false`), 302 for unsigned `/app`, 401 for unsigned `/api/broker/ai-capabilities`, and 404 for `/api/simulation/accounts`.
