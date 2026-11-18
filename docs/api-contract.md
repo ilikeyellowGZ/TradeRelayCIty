@@ -26,7 +26,7 @@ Trade History returns a versioned `TradeOutcomeV1` read model with fill, timelin
 
 The chat routes above are local simulation fixtures, not authenticated production account chat. They are disabled outside loopback `SIMULATION_MODE=true`. They answer only from current simulated account snapshots, positions, commands, and decisions; reconciled trade history, learning, broker capabilities, production provider calls, and order actions are unavailable.
 
-## Read-only broker pairing and snapshots (migration 0009)
+## Read-only broker pairing and snapshots (migrations 0009 and 0010)
 
 | Method | Path | Authentication | Result |
 |---|---|---|---|
@@ -38,6 +38,6 @@ The chat routes above are local simulation fixtures, not authenticated productio
 | POST | `/api/connector/pair` | One-time code | Returns a device ID and 256-bit bearer token once |
 | POST | `/api/connector/snapshot` | Device bearer token | Validates and stores an account/position snapshot; rejects changed account identity |
 
-The Worker stores token digests, not plaintext tokens. Pairing and snapshots are owner/device scoped in D1. Snapshot uploads are bounded to 32 KiB, observed within the last 120 seconds, and contain no MCP or AI keys. The snapshot endpoint returns `mode: BROKER_READ_ONLY`. It never queues a trade. Broker values are snapshots, not a streaming feed; `stale` becomes true after 60 seconds. These routes have local unit/integration tests but no connected-broker or remote staging proof yet.
+The Worker stores token digests, not plaintext tokens. Pairing and snapshots are owner/device scoped in D1. Snapshot uploads are bounded to 32 KiB, observed within the last 120 seconds, and contain no MCP or AI keys. The snapshot account contains balance, equity, used margin, free margin, and MT5-reported floating profit; positions remain a separate bounded array. Migration 0010 adds nullable columns for the three new metrics so older snapshots display an unavailable value until the next sync. The snapshot endpoint returns `mode: BROKER_READ_ONLY`. It never queues a trade. Broker values are snapshots, not a streaming feed; `stale` becomes true after 60 seconds. These routes have local unit/integration tests but no connected-broker or remote staging proof yet.
 
-The snapshot question route accepts at most 500 characters and returns `{answer, observedAt, stale, source: "MT5_ACCOUNT_SNAPSHOT", mode: "BROKER_READ_ONLY", supported}`. It answers balance, equity, floating P&L, open positions, and account identity from the persisted snapshot. It does not call an AI provider, access local MCP, analyze market structure, or place orders. Questions needing broker history, strategy evidence, or contract details return `supported: false`.
+The snapshot question route accepts at most 500 characters and returns `{answer, observedAt, stale, source: "MT5_ACCOUNT_SNAPSHOT", mode: "BROKER_READ_ONLY", supported}`. It answers balance, equity, margin, floating P&L, open positions, and account identity from the persisted snapshot. It does not call an AI provider, access local MCP, analyze market structure, or place orders. Questions needing broker history, strategy evidence, or contract details return `supported: false`.

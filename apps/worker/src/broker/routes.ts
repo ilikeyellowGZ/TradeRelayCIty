@@ -52,8 +52,8 @@ ownerBrokerRoutes.delete('/devices/:id', async (c) => {
 })
 
 ownerBrokerRoutes.get('/accounts', async (c) => {
-  const { results } = await c.env.DB.prepare('SELECT a.id,a.device_id AS deviceId,a.broker,a.server,a.login,a.environment,a.currency,s.balance,s.equity,s.positions_json AS positionsJson,s.observed_at AS observedAt,s.received_at AS receivedAt FROM broker_accounts a INNER JOIN connector_devices d ON d.id=a.device_id LEFT JOIN broker_snapshots s ON s.account_id=a.id WHERE a.owner_id=? AND d.revoked_at IS NULL ORDER BY a.updated_at DESC LIMIT 20').bind(c.get('ownerId')).all<{
-    id: string; deviceId: string; broker: string; server: string; login: string; environment: string; currency: string; balance: number | null; equity: number | null; positionsJson: string | null; observedAt: string | null; receivedAt: number | null
+  const { results } = await c.env.DB.prepare('SELECT a.id,a.device_id AS deviceId,a.broker,a.server,a.login,a.environment,a.currency,s.balance,s.equity,s.margin_used AS marginUsed,s.margin_free AS marginFree,s.floating_profit AS floatingProfit,s.positions_json AS positionsJson,s.observed_at AS observedAt,s.received_at AS receivedAt FROM broker_accounts a INNER JOIN connector_devices d ON d.id=a.device_id LEFT JOIN broker_snapshots s ON s.account_id=a.id WHERE a.owner_id=? AND d.revoked_at IS NULL ORDER BY a.updated_at DESC LIMIT 20').bind(c.get('ownerId')).all<{
+    id: string; deviceId: string; broker: string; server: string; login: string; environment: string; currency: string; balance: number | null; equity: number | null; marginUsed: number | null; marginFree: number | null; floatingProfit: number | null; positionsJson: string | null; observedAt: string | null; receivedAt: number | null
   }>()
   const now = Date.now()
   const accounts = results.map(({ positionsJson, ...row }) => ({
@@ -71,14 +71,14 @@ ownerBrokerRoutes.post('/accounts/:id/questions', async (c) => {
   let body: { question?: unknown }
   try { body = JSON.parse(raw) as typeof body } catch { return c.json({ error: 'Invalid JSON.' }, 400) }
   if (typeof body.question !== 'string') return c.json({ error: 'QUESTION_INVALID' }, 400)
-  const row = await c.env.DB.prepare('SELECT a.broker,a.server,a.login,a.environment,a.currency,s.balance,s.equity,s.positions_json AS positionsJson,s.observed_at AS observedAt FROM broker_accounts a INNER JOIN connector_devices d ON d.id=a.device_id AND d.revoked_at IS NULL INNER JOIN broker_snapshots s ON s.account_id=a.id WHERE a.id=? AND a.owner_id=?').bind(c.req.param('id'), c.get('ownerId')).first<{
-    broker: string; server: string; login: string; environment: 'DEMO' | 'LIVE'; currency: string; balance: number; equity: number; positionsJson: string; observedAt: string
+  const row = await c.env.DB.prepare('SELECT a.broker,a.server,a.login,a.environment,a.currency,s.balance,s.equity,s.margin_used AS marginUsed,s.margin_free AS marginFree,s.floating_profit AS floatingProfit,s.positions_json AS positionsJson,s.observed_at AS observedAt FROM broker_accounts a INNER JOIN connector_devices d ON d.id=a.device_id AND d.revoked_at IS NULL INNER JOIN broker_snapshots s ON s.account_id=a.id WHERE a.id=? AND a.owner_id=?').bind(c.req.param('id'), c.get('ownerId')).first<{
+    broker: string; server: string; login: string; environment: 'DEMO' | 'LIVE'; currency: string; balance: number; equity: number; marginUsed: number | null; marginFree: number | null; floatingProfit: number | null; positionsJson: string; observedAt: string
   }>()
   if (!row) return c.json({ error: 'Account snapshot not found.' }, 404)
   try {
     const answer = answerBrokerQuestion(body.question, {
       observedAt: row.observedAt,
-      account: { broker: row.broker, server: row.server, login: row.login, environment: row.environment, currency: row.currency, balance: row.balance, equity: row.equity },
+      account: { broker: row.broker, server: row.server, login: row.login, environment: row.environment, currency: row.currency, balance: row.balance, equity: row.equity, marginUsed: row.marginUsed, marginFree: row.marginFree, floatingProfit: row.floatingProfit },
       positions: JSON.parse(row.positionsJson),
     })
     c.header('cache-control', 'no-store')
@@ -140,7 +140,7 @@ connectorBrokerRoutes.post('/snapshot', async (c) => {
     account = await c.env.DB.prepare('SELECT id,broker,server,login,environment,currency FROM broker_accounts WHERE device_id=? AND owner_id=?').bind(deviceId, ownerId).first<typeof account>()
   }
   if (!account || account.broker !== snapshot.account.broker || account.server !== snapshot.account.server || account.login !== snapshot.account.login || account.environment !== snapshot.account.environment || account.currency !== snapshot.account.currency) return c.json({ error: 'Broker account changed. Re-pair this connector.' }, 409)
-  const written = await c.env.DB.prepare('INSERT INTO broker_snapshots(account_id,balance,equity,positions_json,observed_at,received_at) VALUES(?,?,?,?,?,?) ON CONFLICT(account_id) DO UPDATE SET balance=excluded.balance,equity=excluded.equity,positions_json=excluded.positions_json,observed_at=excluded.observed_at,received_at=excluded.received_at WHERE excluded.observed_at>=broker_snapshots.observed_at RETURNING account_id AS accountId').bind(account.id, snapshot.account.balance, snapshot.account.equity, JSON.stringify(snapshot.positions), snapshot.observedAt, now).first<{ accountId: string }>()
+  const written = await c.env.DB.prepare('INSERT INTO broker_snapshots(account_id,balance,equity,margin_used,margin_free,floating_profit,positions_json,observed_at,received_at) VALUES(?,?,?,?,?,?,?,?,?) ON CONFLICT(account_id) DO UPDATE SET balance=excluded.balance,equity=excluded.equity,margin_used=excluded.margin_used,margin_free=excluded.margin_free,floating_profit=excluded.floating_profit,positions_json=excluded.positions_json,observed_at=excluded.observed_at,received_at=excluded.received_at WHERE excluded.observed_at>=broker_snapshots.observed_at RETURNING account_id AS accountId').bind(account.id, snapshot.account.balance, snapshot.account.equity, snapshot.account.marginUsed, snapshot.account.marginFree, snapshot.account.floatingProfit, JSON.stringify(snapshot.positions), snapshot.observedAt, now).first<{ accountId: string }>()
   if (!written) return c.json({ error: 'Older broker snapshot rejected.' }, 409)
   await c.env.DB.prepare('UPDATE broker_accounts SET updated_at=? WHERE id=? AND owner_id=?').bind(now, account.id, ownerId).run()
   await c.env.DB.prepare('UPDATE connector_devices SET last_seen_at=? WHERE id=? AND owner_id=? AND revoked_at IS NULL').bind(now, deviceId, ownerId).run()

@@ -1,6 +1,19 @@
 # Cloudflare deployment
 
-Deployment is not performed from this workspace: a Cloudflare account, D1 database ID, domain choice, and owner bootstrap are required.
+The staging Worker is deployed at `https://traderelaycity-staging.service-heyywebb.workers.dev` with its own D1 database and owner account. Production deployment still requires a production D1 ID, origin, and owner setup.
+
+## Deploy staging
+
+Set `CLOUDFLARE_ENV=staging` for the build, then inspect `dist/traderelaycity/wrangler.json` to confirm `targetEnvironment` is `staging` and the D1 binding is `traderelaycity-staging`. Run `npx wrangler deploy` without `--env` against this generated Vite configuration. Adding `--env staging` to the deploy command selects the top-level D1 placeholder and fails with Cloudflare error 10021. Keep the production placeholder untouched.
+
+```powershell
+$env:CLOUDFLARE_ENV = 'staging'
+try { npm run build; if ($LASTEXITCODE -ne 0) { throw 'Staging build failed.' } }
+finally { Remove-Item Env:CLOUDFLARE_ENV -ErrorAction SilentlyContinue }
+npx wrangler deploy
+```
+
+The staging website serves `TradeRelayCity-Connector-Windows.exe` directly. The current executable is unsigned and may be blocked by Windows Smart App Control until a trusted code signature is added. A successful deployment does not validate owner sign-in or a broker-connected MT5 snapshot; run those checks separately.
 
 ## Local first
 

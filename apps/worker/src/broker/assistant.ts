@@ -9,20 +9,32 @@ export type BrokerAnswer = {
   supported: boolean
 }
 
+const moneyFormatters = new Map<string, Intl.NumberFormat>()
+
+function formatMoney(value: number, currency: string): string {
+  try {
+    let formatter = moneyFormatters.get(currency)
+    if (!formatter) {
+      formatter = new Intl.NumberFormat('en-US', { style: 'currency', currency })
+      moneyFormatters.set(currency, formatter)
+    }
+    return formatter.format(value)
+  } catch {
+    return `${value.toFixed(2)} ${currency}`
+  }
+}
+
 export function answerBrokerQuestion(question: string, snapshot: BrokerSnapshot, now = new Date()): BrokerAnswer {
   const text = question.trim()
   if (!text || text.length > 500 || /[\x00-\x1f\x7f]/.test(text)) throw new Error('QUESTION_INVALID')
   const lower = text.toLowerCase()
   const stale = now.getTime() - Date.parse(snapshot.observedAt) > 60_000
-  const money = (value: number) => {
-    try { return new Intl.NumberFormat('en-US', { style: 'currency', currency: snapshot.account.currency }).format(value) }
-    catch { return `${value.toFixed(2)} ${snapshot.account.currency}` }
-  }
+  const money = (value: number) => formatMoney(value, snapshot.account.currency)
   const prefix = `MT5 snapshot observed ${snapshot.observedAt}${stale ? ' (stale)' : ''}. `
   let detail: string
   let supported = true
 
-  if (/\b(today|yesterday|last (five|5|ten|10)|histor(y|ical)|closed|backtest|strategy|market structure|indicator|why|risk|margin|leverage|spread|tick)\b/i.test(text)) {
+  if (/\b(today|yesterday|last (five|5|ten|10)|histor(y|ical)|closed|backtest|strategy|market structure|indicator|why|risk|leverage|spread|tick)\b/i.test(text)) {
     detail = 'This question needs broker history, market data, contract details, or strategy evidence that this snapshot does not contain.'
     supported = false
   } else if (/\b(position|positions|open trades?)\b/i.test(text)) {
@@ -36,13 +48,21 @@ export function answerBrokerQuestion(question: string, snapshot: BrokerSnapshot,
     detail = `Account equity was ${money(snapshot.account.equity)}.`
   } else if (/\b(balance)\b/i.test(text)) {
     detail = `Account balance was ${money(snapshot.account.balance)}.`
+  } else if (/\b(free|available)\s+margin\b/i.test(text)) {
+    if (snapshot.account.marginFree === null) { detail = 'Free margin was not recorded in this snapshot.'; supported = false }
+    else detail = `Free margin was ${money(snapshot.account.marginFree)}.`
+  } else if (/\b(used\s+)?margin\b/i.test(text)) {
+    if (snapshot.account.marginUsed === null) { detail = 'Used margin was not recorded in this snapshot.'; supported = false }
+    else detail = `Used margin was ${money(snapshot.account.marginUsed)}.`
   } else if (/\b(floating|unrealized|open p\s*&\s*l|open profit|open loss)\b/i.test(text)) {
-    const total = snapshot.positions.reduce((sum, position) => sum + position.profit, 0)
-    detail = `Floating P&L across ${snapshot.positions.length} open position${snapshot.positions.length === 1 ? '' : 's'} was ${money(total)}.`
+    if (snapshot.account.floatingProfit === null) {
+      const total = snapshot.positions.reduce((sum, position) => sum + position.profit, 0)
+      detail = `The sum of position P&L across ${snapshot.positions.length} open position${snapshot.positions.length === 1 ? '' : 's'} was ${money(total)}.`
+    } else detail = `MT5 reported account floating P&L of ${money(snapshot.account.floatingProfit)}.`
   } else if (/\b(account|broker|server|currency)\b/i.test(text)) {
     detail = `The bound account was ${snapshot.account.broker} on ${snapshot.account.server}, login ${snapshot.account.login}, ${snapshot.account.environment}, in ${snapshot.account.currency}.`
   } else {
-    detail = 'I can answer balance, equity, floating P&L, open positions, and account identity from this snapshot. Other questions need additional verified data.'
+    detail = 'I can answer balance, equity, margin, floating P&L, open positions, and account identity from this snapshot. Other questions need additional verified data.'
     supported = false
   }
   return { answer: prefix + detail, observedAt: snapshot.observedAt, stale, source: 'MT5_ACCOUNT_SNAPSHOT', mode: 'BROKER_READ_ONLY', supported }

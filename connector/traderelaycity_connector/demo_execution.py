@@ -74,6 +74,10 @@ class DemoExecutor:
             raise ValueError("Command ID or idempotency key was reused with different intent")
         return ExecutionOutcome("unknown" if row["status"] in ("intent_persisted", "submitting") else row["status"])
 
+    def _block(self, command: DemoCommand, reason: str) -> ExecutionOutcome:
+        self.journal.set_status(command.command_id, "risk_blocked", json.dumps({"reason": reason}))
+        return ExecutionOutcome("risk_blocked", reason)
+
     async def submit(self, command: DemoCommand, broker: DemoBroker) -> ExecutionOutcome:
         if not command.command_id or not command.idempotency_key or not command.decision_id or not command.account_binding:
             return ExecutionOutcome("risk_blocked", "Missing command identity or decision evidence")
@@ -87,26 +91,32 @@ class DemoExecutor:
             return existing
         if self.journal.unresolved():
             return ExecutionOutcome("risk_blocked", "A prior submission requires reconciliation")
+        reserved = self.journal.persist_intent(command.command_id, command.idempotency_key, command.account_binding, "OPEN_DEMO", intent)
+        if not reserved:
+            return self._existing(command, intent) or ExecutionOutcome("risk_blocked", "A prior submission requires reconciliation")
         try:
             identity, account, contract, candidate = await broker.preflight(command)
         except Exception:
-            return ExecutionOutcome("risk_blocked", "Broker preflight unavailable")
+            return self._block(command, "Broker preflight unavailable")
         if identity != command.account_binding or account.environment != "DEMO":
-            return ExecutionOutcome("risk_blocked", "Exact connected demo account binding required")
+            return self._block(command, "Exact connected demo account binding required")
         if candidate.symbol != command.symbol or candidate.side != command.side or candidate.requested_volume != command.requested_volume or candidate.stop != command.stop:
-            return ExecutionOutcome("risk_blocked", "Broker preflight differs from approved decision")
+            return self._block(command, "Broker preflight differs from approved decision")
         decision = evaluate_candidate(candidate, account, contract, self.limits)
         if not decision.allowed or decision.volume is None:
-            return ExecutionOutcome("risk_blocked", "; ".join(decision.reasons))
+            return self._block(command, "; ".join(decision.reasons))
+        if decision.volume != command.requested_volume:
+            return self._block(command, "Approved order volume exceeds current risk budget")
+        if command.target is not None and ((command.side == "BUY" and command.target <= candidate.entry) or (command.side == "SELL" and command.target >= candidate.entry)):
+            return self._block(command, "Target is on the wrong side of the entry")
         payload = {"symbol": command.symbol, "type": command.side.lower(), "volume": float(decision.volume), "sl": float(command.stop), "comment": command.comment}
         if command.target is not None:
             payload["tp"] = float(command.target)
         try:
             if not await broker.check_market_order(payload):
-                return ExecutionOutcome("risk_blocked", "Broker order check rejected this entry")
+                return self._block(command, "Broker order check rejected this entry")
         except Exception:
-            return ExecutionOutcome("risk_blocked", "Broker order check unavailable")
-        self.journal.persist_intent(command.command_id, command.idempotency_key, command.account_binding, "OPEN_DEMO", intent)
+            return self._block(command, "Broker order check unavailable")
         self.journal.set_status(command.command_id, "submitting")
         try:
             await broker.send_market_order(payload)

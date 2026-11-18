@@ -88,7 +88,7 @@ def evaluate_candidate(candidate: Candidate, account: AccountRisk, contract: Con
     if not candidate.ai_approved: reasons.append("AI approval is absent")
     if not candidate.broker_stop_protection: reasons.append("required broker-side stop protection is unavailable")
     if not candidate.market_session_open: reasons.append("instrument session is closed or unknown")
-    if account.snapshot_age_seconds > limits.maximum_market_data_age_seconds: reasons.append("market/account snapshot is stale")
+    if account.snapshot_age_seconds < 0 or account.snapshot_age_seconds > limits.maximum_market_data_age_seconds: reasons.append("market/account snapshot is stale or future dated")
     if candidate.spread < 0 or candidate.spread > limits.maximum_spread: reasons.append("spread exceeds the configured limit")
     if candidate.expected_slippage < 0 or candidate.expected_slippage > limits.maximum_expected_slippage: reasons.append("expected slippage exceeds the configured limit")
     if account.equity <= 0 or account.day_start_equity <= 0 or account.peak_equity <= 0: reasons.append("equity baseline is missing or invalid")

@@ -9,6 +9,7 @@ class Journal:
         self.connection = sqlite3.connect(path, timeout=5, isolation_level=None)
         self.connection.row_factory = sqlite3.Row
         self.connection.execute("PRAGMA journal_mode=WAL")
+        self.connection.execute("PRAGMA synchronous=FULL")
         self.connection.execute("PRAGMA foreign_keys=ON")
         self.connection.executescript("""
         CREATE TABLE IF NOT EXISTS commands (
@@ -26,11 +27,22 @@ class Journal:
         );
         """)
 
-    def persist_intent(self, command_id: str, idempotency_key: str, account_binding: str, operation: str, intent_json: str) -> None:
-        self.connection.execute(
-            "INSERT OR IGNORE INTO commands(command_id,idempotency_key,account_binding,operation,status,intent_json) VALUES(?,?,?,?,?,?)",
+    def persist_intent(self, command_id: str, idempotency_key: str, account_binding: str, operation: str, intent_json: str) -> bool:
+        inserted = self.connection.execute(
+            """INSERT OR IGNORE INTO commands(command_id,idempotency_key,account_binding,operation,status,intent_json)
+               SELECT ?,?,?,?,?,? WHERE NOT EXISTS
+               (SELECT 1 FROM commands WHERE status IN ('intent_persisted','submitting','unknown'))""",
             (command_id, idempotency_key, account_binding, operation, "intent_persisted", intent_json),
         )
+        row = self.connection.execute(
+            "SELECT command_id,idempotency_key,account_binding,operation,intent_json FROM commands WHERE command_id=? OR idempotency_key=?",
+            (command_id, idempotency_key),
+        ).fetchone()
+        if row is None:
+            return False
+        if tuple(row) != (command_id, idempotency_key, account_binding, operation, intent_json):
+            raise ValueError("Command ID or idempotency key was reused with different intent")
+        return inserted.rowcount == 1
 
     def set_status(self, command_id: str, status: str, result_json: str | None = None) -> None:
         self.connection.execute("UPDATE commands SET status=?, result_json=COALESCE(?,result_json), updated_at=CURRENT_TIMESTAMP WHERE command_id=?", (status, result_json, command_id))

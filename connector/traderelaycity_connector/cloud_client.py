@@ -34,7 +34,7 @@ class CloudClient:
         data = json.dumps(body, separators=(",", ":")).encode("utf-8")
         if len(data) > 32_768:
             raise CloudClientError("Connector request exceeds size limit")
-        headers = {"content-type": "application/json", "accept": "application/json"}
+        headers = {"content-type": "application/json", "accept": "application/json", "user-agent": "TradeRelayCity-Connector/0.1"}
         if token:
             headers["authorization"] = f"Bearer {token}"
         request = Request(self.website_url + path, data=data, headers=headers, method="POST")

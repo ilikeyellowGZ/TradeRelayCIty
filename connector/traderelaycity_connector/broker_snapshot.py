@@ -103,6 +103,9 @@ def normalize_mt5_snapshot(info: dict, open_trades: dict, observed_at: datetime 
             "currency": currency,
             "balance": _number(account.get("balance"), "balance", 0),
             "equity": _number(account.get("equity"), "equity", 0),
+            "marginUsed": _number(account.get("margin"), "used margin", 0),
+            "marginFree": _number(account.get("margin_free"), "free margin"),
+            "floatingProfit": _number(account.get("profit"), "floating profit"),
         },
         "positions": positions,
     }

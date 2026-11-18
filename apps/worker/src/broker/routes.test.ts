@@ -18,6 +18,7 @@ class SqliteD1 {
   constructor() {
     this.sqlite.exec('PRAGMA foreign_keys=ON; CREATE TABLE "user" (id TEXT PRIMARY KEY); CREATE TABLE app_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL); INSERT INTO "user" VALUES (\'owner-a\'); INSERT INTO "user" VALUES (\'owner-b\'); INSERT INTO app_settings VALUES (\'owner_user_id\',\'owner-a\');')
     this.sqlite.exec(readFileSync(new URL('../../../../migrations/0009_connector_pairing.sql', import.meta.url), 'utf8'))
+    this.sqlite.exec(readFileSync(new URL('../../../../migrations/0010_broker_account_metrics.sql', import.meta.url), 'utf8'))
   }
 
   prepare(sql: string) {
@@ -46,7 +47,7 @@ function setup() {
 
 const snapshot = () => ({
   observedAt: new Date().toISOString(),
-  account: { broker: 'FxPro', server: 'FxPro-MT5 Demo', login: '12345', environment: 'DEMO', currency: 'USD', balance: 10000, equity: 9998 },
+  account: { broker: 'FxPro', server: 'FxPro-MT5 Demo', login: '12345', environment: 'DEMO', currency: 'USD', balance: 10000, equity: 9998, marginUsed: 120, marginFree: 9878, floatingProfit: -2 },
   positions: [{ ticket: '42', symbol: 'EURUSD', side: 'BUY', volume: 0.1, priceOpen: 1.1, priceCurrent: 1.101, profit: 8, stop: 1.09, target: 1.12 }],
 })
 
@@ -76,13 +77,15 @@ describe('connector pairing and snapshots', () => {
     expect(upload.status).toBe(200)
     const accounts = await request('/api/broker/accounts', { headers: ownerHeaders })
     expect(accounts.status).toBe(200)
-    const accountList = (await accounts.json() as { accounts: Array<{ id: string; balance: number; positions: Array<{ ticket: string }>; stale: boolean }> }).accounts
-    expect(accountList[0]).toMatchObject({ balance: 10000, positions: [{ ticket: '42' }], stale: false })
+    const accountList = (await accounts.json() as { accounts: Array<{ id: string; balance: number; marginUsed: number; marginFree: number; floatingProfit: number; positions: Array<{ ticket: string }>; stale: boolean }> }).accounts
+    expect(accountList[0]).toMatchObject({ balance: 10000, marginUsed: 120, marginFree: 9878, floatingProfit: -2, positions: [{ ticket: '42' }], stale: false })
     const questionPath = `/api/broker/accounts/${accountList[0].id}/questions`
     expect((await request(questionPath, { method: 'POST', headers: { ...ownerHeaders, cookie: 'session=other' }, body: JSON.stringify({ question: 'balance' }) })).status).toBe(403)
     const answerResponse = await request(questionPath, { method: 'POST', headers: ownerHeaders, body: JSON.stringify({ question: 'What is my balance?' }) })
     expect(answerResponse.status).toBe(200)
     expect((await answerResponse.json() as { answer: string; mode: string })).toMatchObject({ mode: 'BROKER_READ_ONLY', answer: expect.stringContaining('$10,000.00') })
+    const marginResponse = await request(questionPath, { method: 'POST', headers: ownerHeaders, body: JSON.stringify({ question: 'What is my free margin?' }) })
+    expect((await marginResponse.json() as { answer: string }).answer).toContain('$9,878.00')
 
     const switched = snapshot()
     switched.account.login = '98765'

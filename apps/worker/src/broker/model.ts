@@ -20,6 +20,9 @@ export type BrokerSnapshot = {
     currency: string
     balance: number
     equity: number
+    marginUsed: number | null
+    marginFree: number | null
+    floatingProfit: number | null
   }
   positions: BrokerPosition[]
 }
@@ -45,7 +48,9 @@ export function normalizeSnapshot(input: unknown, now: Date): BrokerSnapshot {
   const account = record(body?.account)
   if (!account || !boundedText(account.broker, 80) || !boundedText(account.server, 100) || !boundedText(account.login, 40)
     || !['DEMO', 'LIVE'].includes(String(account.environment)) || typeof account.currency !== 'string' || !/^[A-Z]{3}$/.test(account.currency)
-    || !boundedNumber(account.balance, 0) || !boundedNumber(account.equity, 0)) throw new Error('SNAPSHOT_ACCOUNT_INVALID')
+    || !boundedNumber(account.balance, 0) || !boundedNumber(account.equity, 0)
+    || !boundedNumber(account.marginUsed, 0) || !boundedNumber(account.marginFree, -1e12)
+    || !boundedNumber(account.floatingProfit, -1e12)) throw new Error('SNAPSHOT_ACCOUNT_INVALID')
 
   if (!Array.isArray(body?.positions) || body.positions.length > 100) throw new Error('SNAPSHOT_POSITIONS_INVALID')
   const tickets = new Set<string>()
@@ -79,6 +84,9 @@ export function normalizeSnapshot(input: unknown, now: Date): BrokerSnapshot {
       currency: account.currency,
       balance: account.balance,
       equity: account.equity,
+      marginUsed: account.marginUsed,
+      marginFree: account.marginFree,
+      floatingProfit: account.floatingProfit,
     },
     positions,
   }

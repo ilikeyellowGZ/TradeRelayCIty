@@ -18,8 +18,9 @@ export function BrokerAssistantPage({ onOpenAccounts }: { onOpenAccounts: () => 
     const controller = new AbortController()
     void fetch('/api/broker/accounts', { cache: 'no-store', signal: controller.signal })
       .then(async (response) => {
+        if (!response.ok) throw new Error('Could not load MT5 snapshots.')
         const data = await response.json() as { accounts?: Account[]; error?: string }
-        if (!response.ok || !data.accounts) throw new Error(data.error ?? 'Could not load MT5 snapshots.')
+        if (!data.accounts) throw new Error(data.error ?? 'Could not load MT5 snapshots.')
         setAccounts(data.accounts)
         setSelected((current) => current || data.accounts?.[0]?.id || '')
       })
@@ -39,8 +40,8 @@ export function BrokerAssistantPage({ onOpenAccounts }: { onOpenAccounts: () => 
       const response = await fetch(`/api/broker/accounts/${encodeURIComponent(selected)}/questions`, {
         method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ question: clean }),
       })
+      if (!response.ok) throw new Error('Could not answer from this snapshot.')
       const data = await response.json() as Answer & { error?: string }
-      if (!response.ok) throw new Error(data.error ?? 'Could not answer from this snapshot.')
       setAnswer(data)
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Could not answer from this snapshot.')

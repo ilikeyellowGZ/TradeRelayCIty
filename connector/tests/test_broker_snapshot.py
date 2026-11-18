@@ -15,6 +15,7 @@ def account(state="connected", account_type="demo"):
         "account": {
             "broker": "FxPro", "server": "FxPro-MT5 Demo", "login": "12345",
             "type": account_type, "currency": "USD", "balance": 10000.0, "equity": 9990.0,
+            "margin": 125.0, "margin_free": 9865.0, "profit": -10.0,
         },
         "terminal": {"connection": {"state": state}},
     }
@@ -29,7 +30,16 @@ class BrokerSnapshotTests(unittest.TestCase):
         result = normalize_mt5_snapshot(account(), trades, datetime(2026, 11, 18, 8, tzinfo=timezone.utc))
         self.assertEqual(result["account"]["environment"], "DEMO")
         self.assertEqual(result["positions"][0]["side"], "BUY")
+        self.assertEqual(result["account"]["marginUsed"], 125.0)
+        self.assertEqual(result["account"]["marginFree"], 9865.0)
+        self.assertEqual(result["account"]["floatingProfit"], -10.0)
         self.assertEqual(result["observedAt"], "2026-11-18T08:00:00.000Z")
+
+    def test_missing_margin_field_blocks_incomplete_snapshot(self):
+        info = account()
+        del info["account"]["margin_free"]
+        with self.assertRaisesRegex(SnapshotError, "free margin"):
+            normalize_mt5_snapshot(info, {"positions": [], "orders": []})
 
     def test_live_account_is_read_only_and_unknown_mode_is_rejected(self):
         result = normalize_mt5_snapshot(account(account_type="real"), {"positions": [], "orders": []})
@@ -59,7 +69,7 @@ class BrokerSnapshotTests(unittest.TestCase):
             def do_POST(self):
                 length = int(self.headers.get("content-length", "0"))
                 body = json.loads(self.rfile.read(length))
-                seen.append((self.path, self.headers.get("authorization"), self.headers.get("cookie")))
+                seen.append((self.path, self.headers.get("authorization"), self.headers.get("cookie"), self.headers.get("user-agent")))
                 if self.path == "/api/connector/pair":
                     self.send_response(201)
                     answer = {"deviceId": "device-1", "token": "A" * 43}
@@ -84,8 +94,8 @@ class BrokerSnapshotTests(unittest.TestCase):
             result = client.upload_snapshot(token, snapshot)
             self.assertEqual(result["accountId"], "account-1")
             self.assertEqual(seen, [
-                ("/api/connector/pair", None, None),
-                ("/api/connector/snapshot", "Bearer " + "A" * 43, None),
+                ("/api/connector/pair", None, None, "TradeRelayCity-Connector/0.1"),
+                ("/api/connector/snapshot", "Bearer " + "A" * 43, None, "TradeRelayCity-Connector/0.1"),
             ])
         finally:
             server.shutdown()
