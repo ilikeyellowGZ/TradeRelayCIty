@@ -38,14 +38,18 @@ Self-host Inter Variable for all interface text, headings, controls, tables and 
 ## 4. Spacing & Layout
 Use a 4px base scale. Use the full available desktop width with fluid 4vw side gutters (clamped between 24px and 72px) and a 12-column grid with 24px gaps. At tablet widths use 24px gutters; at phone widths use 16px. The floating navigation sits centered 40px from the desktop top edge. The overview uses an 8/4 hero split and a 7/5 chart/feature split. Stack panels when they no longer fit. Outer cards use 32px rounding and padding; nested charts use 20px rounding. Controls have at least 44px targets. Tables scroll inside a labeled region. Prevent page-level horizontal overflow at 320px.
 
+Below 1024px the floating navigation becomes a fixed, scrollable drawer with 16px inner gutters and full-width vertical destinations. The mobile header lets account context and MT5 status wrap instead of shrinking labels below readable size.
+
 ## 5. Components
 
 ### App shell and floating navigation
 - Centered pill with Overview, Trading, History, Assistant; a labeled More menu preserves every secondary route.
-- Account selector, SIMULATED/DEMO/LIVE mode, connector health, last-update context and theme toggle remain visible together.
+- On mobile, a hamburger opens one vertical drawer containing every route. The drawer closes on selection, Escape, close button, or scrim press; focus returns to the hamburger and background scrolling stops while open. Closed drawer controls are removed from keyboard focus.
+- On desktop the account selector, SIMULATED/DEMO/LIVE mode, connector health, last-update context, and theme toggle remain visible together. On mobile, the simulation banner carries mode context while the MT5 status has its own header row.
 - Current, hover, focus-visible, menu-open and theme states are distinct. Mode, connector health and strategy state never share one indicator.
 - Buttons expose `aria-current`; menu and theme controls are keyboard operable and clearly named.
 - The context row includes a labeled sign-out control; sign-out failures stay visible and do not imply the session ended.
+- The MT5 MCP status is separate from simulation state and links to Accounts. It names unpaired, recently synced, offline, read error, paused, stale, checking, and unavailable states in text as well as color. A sync older than 45 seconds is unverified because the Windows connector normally syncs every 15 seconds; an old snapshot must not imply a current connection.
 
 ### Theme system
 - Dark navy is the default. Light uses warm off-white and the same brand accents. Persist selection locally and apply it to auth, overview, history, assistant and shared surfaces.
@@ -67,6 +71,7 @@ Use a 4px base scale. Use the full available desktop width with fluid 4vw side g
 
 ## 6. Motion & Interaction
 Use existing Motion and GSAP patterns. Transitions are short and state-based; financial values never count up or imply order success. Respect reduced motion. Do not delay acknowledgements or conceal stale data.
+Navigation drawer motion uses transform and opacity over about 220ms. Menu and account popovers close on outside click and Escape. Active destinations retain a cream selection surface; hover, press, and keyboard focus remain distinct.
 
 ## 7. Depth & Texture
 Use a faint non-interactive dot texture and restrained ambient tonal shifts over navy, never behind dense text. Separate panels with subtle borders and short shadows. Retain quiet chart axes, thin lines, round-ended bars and cream highlights. Burgundy remains a brand treatment, not a semantic loss color.

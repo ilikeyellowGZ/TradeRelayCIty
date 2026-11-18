@@ -1,5 +1,5 @@
 ﻿import { useEffect, useRef, useState } from 'react'
-import { AnimatePresence, LazyMotion, domAnimation, m } from 'motion/react'
+import { AnimatePresence, LazyMotion, domAnimation, m, useReducedMotion } from 'motion/react'
 import { useGSAP } from '@gsap/react'
 import gsap from 'gsap'
 import {
@@ -14,6 +14,7 @@ import { AssistantPage } from './components/AssistantPage'
 import { TradeHistoryPage } from './features/trade-history/TradeHistoryPage'
 import { BrokerPage } from './features/broker/BrokerPage'
 import { BrokerAssistantPage } from './features/broker/BrokerAssistantPage'
+import { getConnectionStatus, type ConnectorDevice } from './features/broker/connectionStatus'
 import { authClient } from './auth-client'
 
 type SimUser = { id: string; name: string; role: 'owner' | 'member' }
@@ -32,13 +33,26 @@ const navItems = [
 ]
 
 const activities = [
-  { title: 'Account snapshot refreshed', detail: 'Illustrative preview Â· just now', icon: Activity, tone: 'blue' },
-  { title: 'Risk profile reviewed', detail: 'Preview state Â· 18 min ago', icon: ShieldCheck, tone: 'cream' },
-  { title: 'Strategy workspace opened', detail: 'No broker connection Â· 42 min ago', icon: Bot, tone: 'red' },
+  { title: 'Account snapshot refreshed', detail: 'Illustrative preview · just now', icon: Activity, tone: 'blue' },
+  { title: 'Risk profile reviewed', detail: 'Preview state · 18 min ago', icon: ShieldCheck, tone: 'cream' },
+  { title: 'Strategy workspace opened', detail: 'No broker connection · 42 min ago', icon: Bot, tone: 'red' },
 ]
 
-function Sidebar({ active, onNavigate, open, onClose }: { active: string; onNavigate: (name: string) => void; open: boolean; onClose: () => void }) {
+function Sidebar({ active, onNavigate, open, onClose, isMobile }: { active: string; onNavigate: (name: string) => void; open: boolean; onClose: () => void; isMobile: boolean }) {
+  const reduceMotion = useReducedMotion()
   const [moreOpen, setMoreOpen] = useState(false)
+  const moreRef = useRef<HTMLDivElement>(null)
+  const moreButtonRef = useRef<HTMLButtonElement>(null)
+  const closeButtonRef = useRef<HTMLButtonElement>(null)
+  useEffect(() => { if (open && isMobile) closeButtonRef.current?.focus() }, [open, isMobile])
+  useEffect(() => {
+    if (!moreOpen) return
+    const closeOnOutside = (event: PointerEvent) => { if (!moreRef.current?.contains(event.target as Node)) setMoreOpen(false) }
+    const closeOnEscape = (event: KeyboardEvent) => { if (event.key === 'Escape') { setMoreOpen(false); moreButtonRef.current?.focus() } }
+    document.addEventListener('pointerdown', closeOnOutside)
+    document.addEventListener('keydown', closeOnEscape)
+    return () => { document.removeEventListener('pointerdown', closeOnOutside); document.removeEventListener('keydown', closeOnEscape) }
+  }, [moreOpen])
   const primaryItems = [
     { label: 'Overview', icon: LayoutDashboard, destination: 'Overview' },
     { label: 'Trading', icon: Bot, destination: 'Bots & Strategies' },
@@ -49,27 +63,41 @@ function Sidebar({ active, onNavigate, open, onClose }: { active: string; onNavi
   return (
     <>
       <AnimatePresence>
-        {open && <m.button className="drawer-scrim" aria-label="Close navigation" onClick={onClose} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} />}
+        {isMobile && open && <m.button className="drawer-scrim" aria-label="Close navigation" onClick={onClose} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} />}
       </AnimatePresence>
-      <aside className={`sidebar${open ? ' sidebar--open' : ''}`} aria-label="Main navigation">
+      <aside className={`sidebar${open ? ' sidebar--open' : ''}`} aria-label="Main navigation" inert={isMobile && !open} onKeyDown={(event) => {
+        if (!isMobile || !open || event.key !== 'Tab') return
+        const controls = Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>('button:not(:disabled)')).filter((button) => button.getClientRects().length > 0)
+        const first = controls[0]
+        const last = controls.at(-1)
+        if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus() }
+        else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus() }
+      }}>
         <div className="sidebar-top">
           <button className="brand-link" type="button" onClick={() => { onNavigate('Overview'); onClose() }} aria-label="TradeRelayCity overview">
             <BotifyMark />
             <span className="brand-name">TradeRelayCity</span>
           </button>
-          <button className="mobile-close icon-button" type="button" onClick={onClose} aria-label="Close navigation"><X size={19} /></button>
+          <button ref={closeButtonRef} className="mobile-close icon-button" type="button" onClick={onClose} aria-label="Close navigation"><X size={20} /></button>
         </div>
 
-        <nav className="primary-nav">
+        <nav className="primary-nav" aria-label="Workspace destinations">
           {primaryItems.map(({ label, destination, icon: Icon }) => (
             <button key={label} type="button" className={`nav-item${active === destination ? ' nav-item--active' : ''}`} aria-label={label} aria-current={active === destination ? 'page' : undefined} onClick={() => { onNavigate(destination); onClose() }}>
               <Icon size={17} strokeWidth={1.8} /><span>{label}</span>
             </button>
           ))}
-          <div className="nav-more-wrap">
-            <button className={`nav-item nav-more-trigger${moreOpen ? ' nav-item--active' : ''}`} type="button" aria-label="More destinations" aria-expanded={moreOpen} aria-haspopup="menu" onClick={() => setMoreOpen((value) => !value)}><MoreHorizontal size={18} /><span>More</span><ChevronDown size={15} /></button>
-            {moreOpen && <div className="nav-more-menu" role="menu" aria-label="More destinations">{secondaryItems.map(({ label, icon: Icon }) => <button key={label} role="menuitem" type="button" aria-current={active === label ? 'page' : undefined} onClick={() => { onNavigate(label); setMoreOpen(false); onClose() }}><Icon size={16} />{label}</button>)}</div>}
+          <div className="nav-more-wrap" ref={moreRef}>
+            <button ref={moreButtonRef} className={`nav-item nav-more-trigger${moreOpen || secondaryItems.some((item) => item.label === active) ? ' nav-item--active' : ''}`} type="button" aria-label="More destinations" aria-expanded={moreOpen} aria-controls="more-destinations" onClick={() => setMoreOpen((value) => !value)}><MoreHorizontal size={18} /><span>More</span><ChevronDown size={15} /></button>
+            <AnimatePresence>
+              {moreOpen && <m.div id="more-destinations" className="nav-more-menu" role="group" aria-label="More destinations" initial={reduceMotion ? false : { opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={reduceMotion ? undefined : { opacity: 0, y: -6 }} transition={{ duration: reduceMotion ? 0 : 0.16 }}>{secondaryItems.map(({ label, icon: Icon }) => <button key={label} type="button" aria-current={active === label ? 'page' : undefined} onClick={() => { onNavigate(label); setMoreOpen(false); onClose() }}><Icon size={16} />{label}</button>)}</m.div>}
+            </AnimatePresence>
           </div>
+        </nav>
+
+        <nav className="mobile-drawer-nav" aria-label="Mobile workspace destinations">
+          <span className="mobile-drawer-label">WORKSPACE</span>
+          {navItems.map(({ label, icon: Icon }) => <button key={label} type="button" className={`mobile-drawer-item${active === label ? ' mobile-drawer-item--active' : ''}`} aria-current={active === label ? 'page' : undefined} onClick={() => { onNavigate(label); onClose() }}><Icon size={19} strokeWidth={1.8} /><span>{label}</span><ArrowUpRight size={15} className="mobile-drawer-arrow" aria-hidden="true" /></button>)}
         </nav>
 
         <div className="sidebar-spacer" />
@@ -120,9 +148,17 @@ function SectionPreview({ active }: { active: string }) {
 }
 
 function App() {
+  const reduceMotion = useReducedMotion()
   const [active, setActive] = useState('Overview')
   const [theme, setTheme] = useState<'light' | 'dark'>(() => window.localStorage.getItem('trc-theme') === 'light' ? 'light' : 'dark')
   const [drawerOpen, setDrawerOpen] = useState(false)
+  const [isMobile, setIsMobile] = useState(() => window.matchMedia('(max-width: 1023px)').matches)
+  const menuButtonRef = useRef<HTMLButtonElement>(null)
+  const accountRef = useRef<HTMLDivElement>(null)
+  const accountButtonRef = useRef<HTMLButtonElement>(null)
+  const [connectorDevices, setConnectorDevices] = useState<ConnectorDevice[] | null>(null)
+  const [connectorError, setConnectorError] = useState(false)
+  const [statusNow, setStatusNow] = useState(Date.now())
   const [range, setRange] = useState('1W')
   const [accountOpen, setAccountOpen] = useState(false)
   const [users, setUsers] = useState<SimUser[]>([])
@@ -136,11 +172,58 @@ function App() {
   const dashboardRef = useRef<HTMLDivElement>(null)
   const brokerPage = active === 'Accounts' || active === 'Positions'
   const brokerView = brokerPage || (active === 'Assistant' && assistantSource === 'broker')
+  const connectorStatus = connectorError
+    ? { tone: 'muted' as const, label: 'MT5 status unavailable', detail: 'Could not check the connector. Open Accounts to retry.' }
+    : connectorDevices === null
+      ? { tone: 'muted' as const, label: 'Checking MT5…', detail: 'Checking your paired Windows connector.' }
+      : getConnectionStatus(connectorDevices, statusNow)
+
+  useEffect(() => {
+    const media = window.matchMedia('(max-width: 1023px)')
+    const syncWidth = () => { setIsMobile(media.matches); if (!media.matches) setDrawerOpen(false) }
+    media.addEventListener('change', syncWidth)
+    return () => media.removeEventListener('change', syncWidth)
+  }, [])
+
+  useEffect(() => {
+    if (!drawerOpen || !isMobile) return
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    const closeOnEscape = (event: KeyboardEvent) => { if (event.key === 'Escape') { setDrawerOpen(false); menuButtonRef.current?.focus() } }
+    document.addEventListener('keydown', closeOnEscape)
+    return () => { document.body.style.overflow = previousOverflow; document.removeEventListener('keydown', closeOnEscape) }
+  }, [drawerOpen, isMobile])
+
+  useEffect(() => {
+    if (!accountOpen) return
+    const closeOnOutside = (event: PointerEvent) => { if (!accountRef.current?.contains(event.target as Node)) setAccountOpen(false) }
+    const closeOnEscape = (event: KeyboardEvent) => { if (event.key === 'Escape') { setAccountOpen(false); accountButtonRef.current?.focus() } }
+    document.addEventListener('pointerdown', closeOnOutside)
+    document.addEventListener('keydown', closeOnEscape)
+    return () => { document.removeEventListener('pointerdown', closeOnOutside); document.removeEventListener('keydown', closeOnEscape) }
+  }, [accountOpen])
+
+  useEffect(() => {
+    let cancelled = false
+    async function refreshConnector() {
+      try {
+        const response = await fetch('/api/broker/devices', { cache: 'no-store' })
+        if (!response.ok) throw new Error('Connector status unavailable')
+        const data = await response.json() as { devices: ConnectorDevice[] }
+        if (!cancelled) { setConnectorDevices(data.devices); setConnectorError(false); setStatusNow(Date.now()) }
+      } catch { if (!cancelled) setConnectorError(true) }
+    }
+    void refreshConnector()
+    const timer = window.setInterval(() => { setStatusNow(Date.now()); void refreshConnector() }, 15_000)
+    return () => { cancelled = true; window.clearInterval(timer) }
+  }, [active])
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme
     window.localStorage.setItem('trc-theme', theme)
   }, [theme])
+
+  useEffect(() => { window.scrollTo(0, 0) }, [active, assistantSource])
 
   useEffect(() => {
     const headers = { 'x-simulation-user': userId }
@@ -181,7 +264,7 @@ function App() {
     size: position.volume.toFixed(2),
     entry: position.entry.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 5 }),
     last: position.market.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 5 }),
-    pnl: `${position.pnl >= 0 ? '+' : 'âˆ’'}${Math.abs(position.pnl).toFixed(2)}`,
+    pnl: `${position.pnl >= 0 ? '+' : '−'}${Math.abs(position.pnl).toFixed(2)}`,
     state: position.pnl >= 0 ? 'positive' : 'negative',
   })) ?? []
 
@@ -215,24 +298,25 @@ function App() {
   return (
     <LazyMotion features={domAnimation}>
     <div className="app-shell" ref={dashboardRef}>
-      <Sidebar active={active} onNavigate={setActive} open={drawerOpen} onClose={() => setDrawerOpen(false)} />
+      <Sidebar active={active} onNavigate={setActive} open={drawerOpen} isMobile={isMobile} onClose={() => { setDrawerOpen(false); if (isMobile) menuButtonRef.current?.focus() }} />
       <main className="main-area">
         <header className="topbar">
-          <button className="mobile-menu icon-button" type="button" onClick={() => setDrawerOpen(true)} aria-label="Open navigation"><Menu size={20} /></button>
+          <button ref={menuButtonRef} className="mobile-menu icon-button" type="button" onClick={() => setDrawerOpen(true)} aria-label="Open navigation" aria-expanded={drawerOpen}><Menu size={21} /></button>
           {brokerView && <div className="topbar-broker-context"><strong>Broker connection</strong><small>MT5 read-only snapshots</small></div>}
-          <div className={`topbar-account${brokerView ? ' topbar-account--hidden' : ''}`}>
-            <button className="account-switcher" type="button" aria-expanded={accountOpen} onClick={() => setAccountOpen((value) => !value)}>
+          <div ref={accountRef} className={`topbar-account${brokerView ? ' topbar-account--hidden' : ''}`}>
+            <button ref={accountButtonRef} className="account-switcher" type="button" aria-expanded={accountOpen} onClick={() => setAccountOpen((value) => !value)}>
               <span className="account-avatar"><Command size={16} /></span>
-              <span className="account-labels"><strong>{account?.label ?? 'Loading simulationâ€¦'}</strong><small>{account?.broker ?? 'Local simulation'}</small></span>
+              <span className="account-labels"><strong>{account?.label ?? 'Loading simulation…'}</strong><small>{account?.broker ?? 'Local simulation'}</small></span>
               <ChevronDown size={16} className={accountOpen ? 'chevron-open' : ''} />
             </button>
             <AnimatePresence>
               {accountOpen && <m.div className="account-menu" initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 5 }}>
-                <strong>Choose simulation persona</strong>{users.map((user) => <button className="persona-option" type="button" key={user.id} onClick={() => { setUserId(user.id); setAccountOpen(false) }}>{user.name}{user.id === userId ? ' Â· selected' : ''}</button>)}<span>Each persona has an isolated simulated account.</span>
+                <strong>Choose simulation persona</strong>{users.map((user) => <button className="persona-option" type="button" key={user.id} onClick={() => { setUserId(user.id); setAccountOpen(false) }}>{user.name}{user.id === userId ? ' · selected' : ''}</button>)}<span>Each persona has an isolated simulated account.</span>
               </m.div>}
             </AnimatePresence>
           </div>
-          <div className={`topbar-state${brokerView ? ' topbar-state--hidden' : ''}`}><span className="mode-badge"><span />{account?.mode ?? 'SIMULATED'} Â· {account?.environment ?? 'DEMO'}</span><span className="state-divider" /><span className={`connection-dot${account?.connected ? ' connection-dot--online' : ''}`} /><span className="connection-copy">{account?.connected ? 'Connector demo fixture' : 'Connector offline'}</span></div>
+          <div className={`topbar-state${brokerView ? ' topbar-state--hidden' : ''}`}><span className="mode-badge"><span />{account?.mode ?? 'SIMULATED'} · {account?.environment ?? 'DEMO'}</span><span className="state-divider" /><span className={`connection-dot${account?.connected ? ' connection-dot--online' : ''}`} /><span className="connection-copy">{account?.connected ? 'Connector demo fixture' : 'Connector offline'}</span></div>
+          <button type="button" className={`mt5-status mt5-status--${connectorStatus.tone}`} onClick={() => setActive('Accounts')} title={`${connectorStatus.detail} View broker accounts.`} aria-label={`${connectorStatus.label}. ${connectorStatus.detail} View broker accounts.`}><span className="mt5-status-dot" aria-hidden="true" /><span role="status">{connectorStatus.label}</span><ArrowUpRight size={14} aria-hidden="true" /></button>
           <div className="topbar-actions">
             <span className="topbar-date">{brokerView ? 'SNAPSHOT TIME SHOWN BELOW' : <>LAST UPDATE <b>·</b> NOT AVAILABLE</>}</span>
             <button className="icon-button unavailable-control" type="button" disabled aria-label="Notifications unavailable in preview" title="Notifications need the application backend"><Bell size={18} /><i /></button>
@@ -243,7 +327,8 @@ function App() {
 
         {signOutError && <p className="signout-error" role="alert">{signOutError}</p>}
 
-        <div className="content-wrap">
+        <AnimatePresence mode="wait" initial={false}>
+        <m.div key={`${active}:${active === 'Assistant' ? assistantSource : ''}`} className="content-wrap" initial={reduceMotion ? false : { opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={reduceMotion ? undefined : { opacity: 0, y: -4 }} transition={{ duration: reduceMotion ? 0 : 0.18, ease: 'easeOut' }}>
           {active === 'Overview' ? <>
             <section className="overview-composition" aria-label="Account overview">
               <div className="overview-hero">
@@ -275,7 +360,7 @@ function App() {
                   <div className="risk-stat"><span className="risk-stat-icon"><Gauge size={16} /></span><span>Execution mode</span><strong className="risk-value-muted">Simulation only</strong></div>
                   <div className="risk-stat"><span className="risk-stat-icon"><Clock3 size={16} /></span><span>Daily P&amp;L</span><strong className={account?.dailyPnl !== undefined && account.dailyPnl >= 0 ? 'risk-positive' : 'risk-negative'}>{account ? `${account.dailyPnl >= 0 ? '+' : '−'}${formatMoney(Math.abs(account.dailyPnl))}` : '—'}</strong></div>
                 </div>
-                <button className="risk-link" type="button" onClick={() => void requestMockReview()} disabled={aiBusy || Boolean(apiError)} aria-describedby="mock-ai-status">{aiBusy ? 'Reviewingâ€¦' : 'Run mock AI review'} <Sparkles size={15} /></button>
+                <button className="risk-link" type="button" onClick={() => void requestMockReview()} disabled={aiBusy || Boolean(apiError)} aria-describedby="mock-ai-status">{aiBusy ? 'Reviewing…' : 'Run mock AI review'} <Sparkles size={15} /></button>
                 <p className="mock-ai-status" id="mock-ai-status" aria-live="polite">{aiMessage}</p>
               </section>
             </div>
@@ -302,7 +387,7 @@ function App() {
 
               <section className="panel activity-panel" aria-labelledby="activity-heading">
                 <div className="panel-heading"><div><span className="eyebrow">THE LOGBOOK</span><h2 className="panel-title" id="activity-heading">Recent activity</h2></div><button className="icon-button more-control" type="button" disabled aria-label="Activity options unavailable"><MoreHorizontal size={19} /></button></div>
-                <div className="activity-list">{(account?.events.length ? account.events.map((event, index) => ({ title: event.message, detail: 'Local simulation Â· just now', icon: index ? ShieldCheck : Activity, tone: index ? 'cream' : 'blue' })) : activities).map(({ title, detail, icon: Icon, tone }) => <article className="activity-item" key={title}>
+                <div className="activity-list">{(account?.events.length ? account.events.map((event, index) => ({ title: event.message, detail: 'Local simulation · just now', icon: index ? ShieldCheck : Activity, tone: index ? 'cream' : 'blue' })) : activities).map(({ title, detail, icon: Icon, tone }) => <article className="activity-item" key={title}>
                   <span className={`activity-icon activity-icon--${tone}`}><Icon size={15} /></span><div><strong>{title}</strong><span>{detail}</span></div>
                 </article>)}</div>
                 <div className="activity-footer"><span className="footer-rule" /><span>END OF SAMPLE LOG</span><span className="footer-rule" /></div>
@@ -325,7 +410,8 @@ function App() {
             <SectionPreview active={active} />
             <footer className="page-footer"><span><span className="footer-mark"><BotifyMark compact /></span>TRADERELAYCITY</span><span>SIMULATION <i /> LIVE MODE DISABLED</span><span>Built for clarity.</span></footer>
           </>}
-        </div>
+        </m.div>
+        </AnimatePresence>
       </main>
     </div>
     </LazyMotion>
