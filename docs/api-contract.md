@@ -36,6 +36,8 @@ The chat routes above are local simulation fixtures, not authenticated productio
 | DELETE | `/api/broker/devices/{id}` | Owner session and same-origin request | Revokes a device token |
 | GET | `/api/broker/accounts` | Owner session | Lists owner-bound latest account snapshots and `stale` flag |
 | POST | `/api/broker/accounts/{id}/questions` | Owner session and same-origin request | Returns a deterministic, read-only answer grounded in that account's latest snapshot; unsupported questions are declined |
+| GET | `/api/broker/ai-capabilities` | Owner session | Reports whether the optional server-side classifier is configured, without a key |
+| POST | `/api/broker/accounts/{id}/ai-questions` | Owner session and same-origin request | Classifies a question with the configured provider, then renders facts from the owned snapshot; 30 requests per UTC day |
 | POST | `/api/connector/pair` | One-time code | Returns a device ID and 256-bit bearer token once |
 | POST | `/api/connector/snapshot` | Device bearer token | Validates and stores an account/position snapshot; rejects changed account identity |
 | POST | `/api/connector/status` | Device bearer token | Accepts `MCP_OFFLINE`, `MCP_ERROR`, or `PAUSED`; `SYNCED` can only be set by a validated snapshot upload |
@@ -45,3 +47,5 @@ The Worker stores token digests, not plaintext tokens. Pairing and snapshots are
 Migration 0011 stores the device's latest connector state and a bounded log of its last 100 state changes. Repeated identical reports refresh last-seen time without adding events. The status payload contains only a fixed state code, never an exception message or credential. A network outage cannot reach this endpoint, so the UI must still use snapshot age and last-seen time to detect silence.
 
 The snapshot question route accepts at most 500 characters and returns `{answer, observedAt, stale, source: "MT5_ACCOUNT_SNAPSHOT", mode: "BROKER_READ_ONLY", supported}`. It answers balance, equity, margin, floating P&L, open positions, and account identity from the persisted snapshot. It does not call an AI provider, access local MCP, analyze market structure, or place orders. Questions needing broker history, strategy evidence, or contract details return `supported: false`.
+
+The optional AI question route uses migration 0012 for a 30-request daily owner cap. OpenAI, Anthropic, or xAI classifies only the question and available symbol names into a fixed intent schema. The Worker validates the intent and renders the answer from the same MT5 snapshot. It sends no account values to the provider and offers no execution tool. Provider calls and model compatibility remain unverified without a server-side key. See [classifier setup](broker-ai-classifier.md).

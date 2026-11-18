@@ -12,7 +12,7 @@ Updated 2026-11-18. The repository is an existing React/Vite frontend, Hono Clou
 | Broker Accounts/Positions pages | Implemented, browser checked with synthetic UI data | Balance, equity, MT5 floating P&L, used/free margin, and stale/empty states; no actual broker snapshot yet |
 | MT5 snapshot question assistant | Implemented, locally tested | Deterministic read-only balance, margin, positions and P&L answers with source/time; no model provider called |
 | Groq/Gemini decision adapters | Implemented but not routed to production | Structured opinion validation exists; real key/provider calls not verified |
-| OpenAI/Anthropic/xAI assistant adapters | Missing | Requires server-side keys, provider-specific schema and cost/usage controls |
+| OpenAI/Anthropic/xAI question classifier adapters | Implemented, locally mocked | Owner-scoped route, fixed output schema, 30/day cap, server-side keys; no real key or provider response verified |
 | Broker closed history, symbol specifications, ticks and candles | Missing | Tool names discovered; response mapping and account-scoped persistence not built |
 | Native MT5 Strategy Tester UI and result storage | Missing | Tester tool schemas discovered; no EA, configuration or test run provided |
 | Demo command queue and broker reconciliation | Partial | Local journal/risk and isolated state-machine work exist; no Worker-to-connector execution workflow |
@@ -23,7 +23,7 @@ Updated 2026-11-18. The repository is an existing React/Vite frontend, Hono Clou
 1. Connect MT5 to the intended FxPro account and validate a real read-only snapshot, including nonempty positions and account type. Fix only observed response-shape differences.
 2. Verify remote owner login, migration 0009, pairing, revocation, and snapshot upload on staging over HTTPS. Do not use the production D1 placeholder.
 3. Add account-scoped broker history, pending orders, symbol specifications, candles, and analytics from discovered MCP schemas. Keep sync timestamps and failures explicit.
-4. Add server-side provider-backed explanations with OpenAI, Anthropic, and xAI adapters, strict output validation, usage limits, refusal handling, and no trading commands.
+4. Configure and verify one supported OpenAI, Anthropic, or xAI model for the optional question classifier; then extend provider-backed explanations only after evaluation against grounded broker records. No provider call has been verified with a real key.
 5. Build the native tester job queue and UI after an EA path and Strategy Tester configuration are available. Store reports with strategy version, costs, and train/validation dates; compare results without auto deployment.
 6. Complete a durable demo command queue, fresh server and connector risk checks, idempotent journal, timeout-as-unknown handling, and broker reconciliation. Validate on a demo account only.
 7. Finish Windows startup support, signed packaging, remote security review, performance checks, and full mobile/keyboard QA. Keep live trading disabled until separately authorized.

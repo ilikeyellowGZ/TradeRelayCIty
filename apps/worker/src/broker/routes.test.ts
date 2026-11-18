@@ -20,6 +20,7 @@ class SqliteD1 {
     this.sqlite.exec(readFileSync(new URL('../../../../migrations/0009_connector_pairing.sql', import.meta.url), 'utf8'))
     this.sqlite.exec(readFileSync(new URL('../../../../migrations/0010_broker_account_metrics.sql', import.meta.url), 'utf8'))
     this.sqlite.exec(readFileSync(new URL('../../../../migrations/0011_connector_status.sql', import.meta.url), 'utf8'))
+    this.sqlite.exec(readFileSync(new URL('../../../../migrations/0012_broker_ai_usage.sql', import.meta.url), 'utf8'))
   }
 
   prepare(sql: string) {
@@ -35,12 +36,12 @@ class SqliteD1 {
 }
 
 const base = 'https://test.example'
-function setup() {
+function setup(ai: Record<string, string> = {}) {
   const db = new SqliteD1()
   const app = new Hono()
   app.route('/api/broker', ownerBrokerRoutes)
   app.route('/api/connector', connectorBrokerRoutes)
-  const env = { DB: db as unknown as D1Database, APP_BASE_URL: base, BETTER_AUTH_SECRET: 'test-only-secret-with-at-least-32-characters' }
+  const env = { DB: db as unknown as D1Database, APP_BASE_URL: base, BETTER_AUTH_SECRET: 'test-only-secret-with-at-least-32-characters', ...ai }
   const request = (path: string, init?: RequestInit) => app.request(base + path, init, env)
   const ownerHeaders = { cookie: 'session=owner', origin: base, 'content-type': 'application/json' }
   return { db, request, ownerHeaders }
@@ -59,6 +60,7 @@ describe('connector pairing and snapshots', () => {
     expect((await request('/api/broker/devices', { headers: { cookie: 'session=other' } })).status).toBe(403)
     expect((await request('/api/broker/pairing-codes', { method: 'POST', headers: { ...ownerHeaders, origin: 'https://evil.example' }, body: '{}' })).status).toBe(403)
     expect((await request('/api/connector/snapshot', { method: 'POST', body: '{}' })).status).toBe(401)
+    expect((await request('/api/broker/ai-capabilities', { headers: ownerHeaders }).then((response) => response.json()) as { available: boolean }).available).toBe(false)
   })
 
   it('pairs once, binds one account, exposes its snapshot, and revokes the device', async () => {
@@ -112,5 +114,33 @@ describe('connector pairing and snapshots', () => {
     const { code } = await response.json() as { code: string }
     db.sqlite.exec('UPDATE connector_pairing_codes SET expires_at=0')
     expect((await request('/api/connector/pair', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ code, name: 'Late' }) })).status).toBe(401)
+  })
+
+  it('classifies an owned broker question with a bounded server-side provider request', async () => {
+    const { db, request, ownerHeaders } = setup({ BROKER_AI_PROVIDER: 'openai', BROKER_AI_MODEL: 'gpt-test', OPENAI_API_KEY: 'test-only-key' })
+    const codeResponse = await request('/api/broker/pairing-codes', { method: 'POST', headers: ownerHeaders, body: '{}' })
+    const { code } = await codeResponse.json() as { code: string }
+    const pair = await request('/api/connector/pair', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ code, name: 'Windows PC' }) })
+    const { token } = await pair.json() as { token: string }
+    await request('/api/connector/snapshot', { method: 'POST', headers: { authorization: `Bearer ${token}` }, body: JSON.stringify(snapshot()) })
+    const accountResponse = await request('/api/broker/accounts', { headers: ownerHeaders })
+    const { accounts } = await accountResponse.json() as { accounts: Array<{ id: string }> }
+    const path = `/api/broker/accounts/${accounts[0].id}/ai-questions`
+    expect((await request('/api/broker/ai-capabilities', { headers: ownerHeaders }).then((response) => response.json()) as { available: boolean }).available).toBe(true)
+    expect((await request(path, { method: 'POST', headers: { ...ownerHeaders, cookie: 'session=other' }, body: JSON.stringify({ question: 'How much is in my account?' }) })).status).toBe(403)
+    const provider = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(JSON.stringify({
+      id: 'provider-1', status: 'completed', output: [{ type: 'message', role: 'assistant', content: [{ type: 'output_text', text: '{"intent":"BALANCE","symbol":null}' }] }], usage: { input_tokens: 12, output_tokens: 5 },
+    }), { status: 200 }))
+    try {
+      const response = await request(path, { method: 'POST', headers: ownerHeaders, body: JSON.stringify({ question: 'How much is in my account?' }) })
+      expect(response.status).toBe(200)
+      expect(await response.json()).toMatchObject({ supported: true, classification: 'AI_INTENT', answer: expect.stringContaining('$10,000.00'), classifier: { provider: 'openai', model: 'gpt-test' } })
+      const blocked = await request(path, { method: 'POST', headers: ownerHeaders, body: JSON.stringify({ question: 'Place a trade now' }) })
+      expect((await blocked.json() as { supported: boolean; classification: string })).toMatchObject({ supported: false, classification: 'UNAVAILABLE' })
+      expect(provider).toHaveBeenCalledTimes(1)
+      db.sqlite.prepare('UPDATE broker_ai_daily_usage SET request_count=30 WHERE owner_id=? AND day_utc=?').run('owner-a', new Date().toISOString().slice(0, 10))
+      expect((await request(path, { method: 'POST', headers: ownerHeaders, body: JSON.stringify({ question: 'How much is in my account?' }) })).status).toBe(429)
+      expect(provider).toHaveBeenCalledTimes(1)
+    } finally { provider.mockRestore() }
   })
 })

@@ -1,9 +1,10 @@
 import { Hono } from 'hono'
 import { createAuth } from '../auth'
 import { digestSecret, normalizeSnapshot, randomDeviceToken, randomPairingCode } from './model'
-import { answerBrokerQuestion } from './assistant'
+import { answerBrokerQuestion, requiresUnavailableBrokerData } from './assistant'
+import { brokerAiConfig, intentQuestion, requestBrokerIntent, type BrokerAiEnv } from './ai-intent'
 
-type Bindings = { DB: D1Database; APP_BASE_URL?: string; BETTER_AUTH_SECRET?: string }
+type Bindings = { DB: D1Database; APP_BASE_URL?: string; BETTER_AUTH_SECRET?: string } & BrokerAiEnv
 type Variables = { ownerId: string; deviceId: string; deviceOwnerId: string }
 type BrokerEnv = { Bindings: Bindings; Variables: Variables }
 
@@ -73,6 +74,12 @@ ownerBrokerRoutes.get('/accounts', async (c) => {
   return c.json({ accounts })
 })
 
+ownerBrokerRoutes.get('/ai-capabilities', (c) => {
+  const config = brokerAiConfig(c.env)
+  c.header('cache-control', 'no-store')
+  return c.json({ available: config !== null, provider: config?.provider ?? null, dailyLimit: 30 })
+})
+
 ownerBrokerRoutes.post('/accounts/:id/questions', async (c) => {
   const raw = await c.req.text()
   if (raw.length > 1024) return c.json({ error: 'Question exceeds size limit.' }, 413)
@@ -94,6 +101,49 @@ ownerBrokerRoutes.post('/accounts/:id/questions', async (c) => {
   } catch (error) {
     if (error instanceof Error && error.message === 'QUESTION_INVALID') return c.json({ error: 'QUESTION_INVALID' }, 400)
     return c.json({ error: 'Account snapshot unavailable.' }, 503)
+  }
+})
+
+ownerBrokerRoutes.post('/accounts/:id/ai-questions', async (c) => {
+  const raw = await c.req.text()
+  if (raw.length > 1024) return c.json({ error: 'Question exceeds size limit.' }, 413)
+  let body: { question?: unknown }
+  try { body = JSON.parse(raw) as typeof body } catch { return c.json({ error: 'Invalid JSON.' }, 400) }
+  if (typeof body.question !== 'string') return c.json({ error: 'QUESTION_INVALID' }, 400)
+  const question = body.question.trim()
+  if (!question || question.length > 500 || /[\x00-\x1f\x7f]/.test(question)) return c.json({ error: 'QUESTION_INVALID' }, 400)
+  const config = brokerAiConfig(c.env)
+  if (!config) return c.json({ error: 'AI classifier is not configured; use snapshot facts.' }, 503)
+  const row = await c.env.DB.prepare('SELECT a.broker,a.server,a.login,a.environment,a.currency,s.balance,s.equity,s.margin_used AS marginUsed,s.margin_free AS marginFree,s.floating_profit AS floatingProfit,s.positions_json AS positionsJson,s.observed_at AS observedAt FROM broker_accounts a INNER JOIN connector_devices d ON d.id=a.device_id AND d.revoked_at IS NULL INNER JOIN broker_snapshots s ON s.account_id=a.id WHERE a.id=? AND a.owner_id=?').bind(c.req.param('id'), c.get('ownerId')).first<{
+    broker: string; server: string; login: string; environment: 'DEMO' | 'LIVE'; currency: string; balance: number; equity: number; marginUsed: number | null; marginFree: number | null; floatingProfit: number | null; positionsJson: string; observedAt: string
+  }>()
+  if (!row) return c.json({ error: 'Account snapshot not found.' }, 404)
+  let snapshot: Parameters<typeof answerBrokerQuestion>[1]
+  try {
+    snapshot = {
+      observedAt: row.observedAt,
+      account: { broker: row.broker, server: row.server, login: row.login, environment: row.environment, currency: row.currency, balance: row.balance, equity: row.equity, marginUsed: row.marginUsed, marginFree: row.marginFree, floatingProfit: row.floatingProfit },
+      positions: JSON.parse(row.positionsJson),
+    }
+  } catch { return c.json({ error: 'Account snapshot unavailable.' }, 503) }
+  if (requiresUnavailableBrokerData(question)) {
+    c.header('cache-control', 'no-store')
+    return c.json({ ...answerBrokerQuestion(question, snapshot), classification: 'UNAVAILABLE' })
+  }
+  const day = new Date().toISOString().slice(0, 10)
+  const reserved = await c.env.DB.prepare('INSERT INTO broker_ai_daily_usage(owner_id,day_utc,request_count) VALUES(?,?,1) ON CONFLICT(owner_id,day_utc) DO UPDATE SET request_count=request_count+1 WHERE request_count<30 RETURNING request_count').bind(c.get('ownerId'), day).first()
+  if (!reserved) return c.json({ error: 'Daily AI question limit reached.' }, 429)
+  try {
+    const symbols = [...new Set(snapshot.positions.map((position) => position.symbol))]
+    const classified = await requestBrokerIntent(config, question, symbols)
+    const answer = answerBrokerQuestion(intentQuestion(classified.intent, classified.symbol), snapshot)
+    c.header('cache-control', 'no-store')
+    return c.json({ ...answer, classification: 'AI_INTENT', classifier: {
+      provider: classified.provider, model: classified.model, requestId: classified.requestId,
+      inputTokens: classified.inputTokens, outputTokens: classified.outputTokens,
+    } })
+  } catch {
+    return c.json({ error: 'AI classifier unavailable; use snapshot facts.' }, 502)
   }
 })
 

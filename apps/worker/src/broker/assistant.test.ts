@@ -21,7 +21,7 @@ describe('read-only broker snapshot answers', () => {
   })
 
   it('declines unsupported history and market claims', () => {
-    for (const question of ['How much did I lose today?', 'Why did my last five trades fail?', 'Run a backtest']) {
+    for (const question of ['How much did I lose today?', 'Why did my last five trades fail?', 'Run a backtest', 'Place an order now', 'Open EURUSD trade']) {
       const answer = answerBrokerQuestion(question, snapshot, now)
       expect(answer.supported).toBe(false)
       expect(answer.answer).toContain('does not contain')

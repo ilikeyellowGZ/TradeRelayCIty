@@ -3,7 +3,8 @@ import { ArrowUpRight, ShieldCheck } from 'lucide-react'
 import './broker.css'
 
 type Account = { id: string; broker: string; server: string; login: string; environment: 'DEMO' | 'LIVE'; observedAt: string | null; stale: boolean }
-type Answer = { answer: string; observedAt: string; stale: boolean; source: 'MT5_ACCOUNT_SNAPSHOT'; mode: 'BROKER_READ_ONLY'; supported: boolean }
+type Answer = { answer: string; observedAt: string; stale: boolean; source: 'MT5_ACCOUNT_SNAPSHOT'; mode: 'BROKER_READ_ONLY'; supported: boolean; classification?: 'AI_INTENT' | 'UNAVAILABLE'; classifier?: { provider: string; model: string } }
+type AiCapability = { available: boolean; provider: string | null; dailyLimit: number }
 
 export function BrokerAssistantPage({ onOpenAccounts }: { onOpenAccounts: () => void }) {
   const [accounts, setAccounts] = useState<Account[]>([])
@@ -13,6 +14,8 @@ export function BrokerAssistantPage({ onOpenAccounts }: { onOpenAccounts: () => 
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const [aiCapability, setAiCapability] = useState<AiCapability | null>(null)
+  const [useAi, setUseAi] = useState(false)
 
   useEffect(() => {
     const controller = new AbortController()
@@ -26,6 +29,10 @@ export function BrokerAssistantPage({ onOpenAccounts }: { onOpenAccounts: () => 
       })
       .catch((cause: unknown) => { if (!controller.signal.aborted) setError(cause instanceof Error ? cause.message : 'Could not load MT5 snapshots.') })
       .finally(() => { if (!controller.signal.aborted) setLoading(false) })
+    void fetch('/api/broker/ai-capabilities', { cache: 'no-store', signal: controller.signal })
+      .then(async (response) => response.ok ? response.json() as Promise<AiCapability> : null)
+      .then((capability) => { if (!controller.signal.aborted) setAiCapability(capability) })
+      .catch(() => { if (!controller.signal.aborted) setAiCapability(null) })
     return () => controller.abort()
   }, [])
 
@@ -37,7 +44,8 @@ export function BrokerAssistantPage({ onOpenAccounts }: { onOpenAccounts: () => 
     setError('')
     setAnswer(null)
     try {
-      const response = await fetch(`/api/broker/accounts/${encodeURIComponent(selected)}/questions`, {
+      const endpoint = useAi && aiCapability?.available ? 'ai-questions' : 'questions'
+      const response = await fetch(`/api/broker/accounts/${encodeURIComponent(selected)}/${endpoint}`, {
         method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ question: clean }),
       })
       if (!response.ok) throw new Error('Could not answer from this snapshot.')
@@ -54,7 +62,7 @@ export function BrokerAssistantPage({ onOpenAccounts }: { onOpenAccounts: () => 
       <div><div className="overline"><span className="overline-line" />READ-ONLY RECORDS</div><h1 id="broker-assistant-title">MT5 account answers<span className="title-period">.</span></h1><p className="page-subtitle">Ask about a paired account snapshot. Answers cite its observation time and use only stored MT5 values.</p></div>
       <button type="button" className="pill-button pill-button--secondary broker-refresh" onClick={onOpenAccounts}>Manage connection <ArrowUpRight size={16} /></button>
     </div>
-    <div className="broker-state-note" role="note"><ShieldCheck size={19} /><span>This record assistant is deterministic. It does not call an AI provider or any trading tool. Questions needing history, market data, or a strategy test receive an unavailable answer.</span></div>
+    <div className="broker-state-note" role="note"><ShieldCheck size={19} /><span>Snapshot facts are rendered from stored MT5 values. The optional AI classifier interprets the question only; it cannot call trading tools. Questions needing history, market data, or a strategy test receive an unavailable answer.</span></div>
     {error && <p role="alert" className="broker-error">{error}</p>}
     <div className="panel broker-panel broker-assistant-panel">
       {loading ? <p role="status">Loading MT5 accounts…</p> : accounts.length === 0 ? <div className="broker-empty"><h2>No broker snapshot yet</h2><p>Pair the Windows connector and sync an MT5 account first.</p></div> : <>
@@ -66,10 +74,11 @@ export function BrokerAssistantPage({ onOpenAccounts }: { onOpenAccounts: () => 
         <form onSubmit={(event) => void ask(event)}>
           <label htmlFor="broker-assistant-question">Your question</label>
           <textarea id="broker-assistant-question" maxLength={500} rows={3} value={question} onChange={(event) => setQuestion(event.target.value)} placeholder="What is my current account balance?" />
+          <label className="broker-ai-option"><input type="checkbox" checked={useAi} disabled={!aiCapability?.available} onChange={(event) => setUseAi(event.target.checked)} /><span>Use AI to interpret my question<small>{aiCapability?.available ? `Sends the text you type and open symbol names to ${aiCapability.provider}; stored account values stay on TradeRelayCity. Limit ${aiCapability.dailyLimit} questions per UTC day.` : 'Unavailable until a server-side provider is configured.'}</small></span></label>
           <button className="pill-button pill-button--primary" type="submit" disabled={busy || !question.trim()}>{busy ? 'Checking snapshot…' : 'Ask about snapshot'}</button>
         </form>
         <p className="broker-assistant-examples">Try: “What is my balance?” · “Show my EUR/USD positions” · “What is my floating P&amp;L?”</p>
-        {answer && <article className="broker-answer" aria-live="polite"><span>{answer.supported ? 'SNAPSHOT ANSWER' : 'DATA UNAVAILABLE'}</span><p>{answer.answer}</p><small>Source: MT5 account snapshot · {answer.mode}{answer.stale ? ' · Stale' : ''}</small></article>}
+        {answer && <article className="broker-answer" aria-live="polite"><span>{answer.supported ? 'SNAPSHOT ANSWER' : 'DATA UNAVAILABLE'}</span><p>{answer.answer}</p><small>Source: MT5 account snapshot · {answer.mode}{answer.stale ? ' · Stale' : ''}{answer.classification === 'AI_INTENT' && answer.classifier ? ` · Question classified by ${answer.classifier.provider} (${answer.classifier.model})` : ''}</small></article>}
       </>}
     </div>
   </section>

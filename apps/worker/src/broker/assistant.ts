@@ -9,6 +9,12 @@ export type BrokerAnswer = {
   supported: boolean
 }
 
+export function requiresUnavailableBrokerData(question: string): boolean {
+  return /\b(today|yesterday|last (five|5|ten|10)|histor(y|ical)|closed|backtest|strategy|market structure|indicator|why|risk|leverage|spread|tick|pending|orders?|place|execute|submit|enter|buy|sell|modify|cancel|delete|open a|close a)\b/i.test(question)
+    || /^(?:please\s+)?(?:open|close)\b/i.test(question)
+    || /\b(?:can|could|would|will)\s+you\s+(?:open|close)\b/i.test(question)
+}
+
 const moneyFormatters = new Map<string, Intl.NumberFormat>()
 
 function formatMoney(value: number, currency: string): string {
@@ -27,14 +33,13 @@ function formatMoney(value: number, currency: string): string {
 export function answerBrokerQuestion(question: string, snapshot: BrokerSnapshot, now = new Date()): BrokerAnswer {
   const text = question.trim()
   if (!text || text.length > 500 || /[\x00-\x1f\x7f]/.test(text)) throw new Error('QUESTION_INVALID')
-  const lower = text.toLowerCase()
   const stale = now.getTime() - Date.parse(snapshot.observedAt) > 60_000
   const money = (value: number) => formatMoney(value, snapshot.account.currency)
   const prefix = `MT5 snapshot observed ${snapshot.observedAt}${stale ? ' (stale)' : ''}. `
   let detail: string
   let supported = true
 
-  if (/\b(today|yesterday|last (five|5|ten|10)|histor(y|ical)|closed|backtest|strategy|market structure|indicator|why|risk|leverage|spread|tick)\b/i.test(text)) {
+  if (requiresUnavailableBrokerData(text)) {
     detail = 'This question needs broker history, market data, contract details, or strategy evidence that this snapshot does not contain.'
     supported = false
   } else if (/\b(position|positions|open trades?)\b/i.test(text)) {
