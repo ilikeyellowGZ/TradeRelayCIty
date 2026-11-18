@@ -19,7 +19,7 @@ const allowedTransitions: Record<SimulationCommandStatus, SimulationCommandStatu
   rejected: [], expired: [], cancelled: [], unknown: ['filled', 'partially_filled', 'rejected', 'cancelled'],
 }
 
-app.get('/api/health', (c) => c.json({ status: 'ok', service: 'TradeRelayCity', mode: 'SIMULATED', isLive: false }))
+app.get('/api/health', (c) => c.json({ status: 'ok', service: 'TradeRelayCity', mode: c.env.SIMULATION_MODE === 'true' ? 'SIMULATED' : 'BROKER_READ_ONLY', isLive: false }))
 
 app.on(['GET', 'POST'], '/api/auth/*', (c) => {
   if (!c.env.APP_BASE_URL || !c.env.BETTER_AUTH_SECRET) return c.json({ error: 'Authentication is not configured.' }, 503)

@@ -143,3 +143,8 @@ Updated: 2026-11-09
 - Added an owner-scoped question endpoint and an **MT5 snapshots** source in the existing Assistant destination. It answers balance, equity, floating P&L, open positions, and account identity from the latest persisted snapshot with observation time and stale labeling. Other questions return an explicit data-unavailable response. It is deterministic and does not call an AI provider or broker trading tool.
 - The Assistant's simulation source remains separate. Provider-backed explanations, trade-history analysis, and strategy backtests are still unconnected.
 - Verification after this change: 57 TypeScript tests and 32 Python connector tests passed; the production build completed; React Doctor found no new changed-file issue. Browser checks at 375, 768, and 1280 pixels exercised the MT5 source switch, a synthetic stale account answer, and the empty Broker page with no page-level horizontal overflow or runtime error. The browser data was synthetic UI test data, not a verified broker result.
+
+## 2026-11-18 owner password recovery command
+
+- Added `scripts/reset-owner-password.ps1` for an existing local or staging owner. It identifies the configured owner, requires the username to be typed as confirmation, prompts for the replacement password without echoing it, uses Better Auth's password hash, and revokes existing website sessions. There is no public password-reset endpoint.
+- `-CheckOnly` returned the configured username `iluvgirls` against both local and staging D1 without changing either credential. PowerShell parsing, Wrangler SQL-file JSON shape, and Better Auth hash format were checked. The actual reset was not run because the owner has not chosen a new password.
