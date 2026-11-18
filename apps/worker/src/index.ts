@@ -5,6 +5,7 @@ import { MockAiProvider, type AiCandidate } from './ai/provider'
 import { registerHistoryRoutes } from './history/routes'
 import { answerSimulationQuestion, normalizeChatQuestion, type ChatContext } from './chat/simulation'
 import { listHistory, type HistoryDatabase } from './history/repository'
+import { connectorBrokerRoutes, ownerBrokerRoutes } from './broker/routes'
 
 type Bindings = { DB: D1Database; ASSETS: { fetch(request: Request): Promise<Response> }; SIMULATION_MODE?: string; APP_BASE_URL?: string; BETTER_AUTH_SECRET?: string }
 type Variables = { simulationUser: string }
@@ -41,6 +42,9 @@ app.on('GET', ['/app', '/app/*'], async (c) => {
     return c.text('Workspace authentication is unavailable.', 503)
   }
 })
+
+app.route('/api/broker', ownerBrokerRoutes)
+app.route('/api/connector', connectorBrokerRoutes)
 
 app.use('/api/simulation/*', async (c, next) => {
   const host = new URL(c.req.url).hostname

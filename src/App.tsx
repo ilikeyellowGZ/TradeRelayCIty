@@ -12,6 +12,7 @@ import { BotifyMark } from './components/BotifyMark'
 import { ScoreboardChart } from './components/ScoreboardChart'
 import { AssistantPage } from './components/AssistantPage'
 import { TradeHistoryPage } from './features/trade-history/TradeHistoryPage'
+import { BrokerPage } from './features/broker/BrokerPage'
 import { authClient } from './auth-client'
 
 type SimUser = { id: string; name: string; role: 'owner' | 'member' }
@@ -131,6 +132,7 @@ function App() {
   const [aiMessage, setAiMessage] = useState('Mock AI is idle; live AI is not configured.')
   const [aiBusy, setAiBusy] = useState(false)
   const dashboardRef = useRef<HTMLDivElement>(null)
+  const brokerView = active === 'Accounts' || active === 'Positions'
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme
@@ -214,7 +216,8 @@ function App() {
       <main className="main-area">
         <header className="topbar">
           <button className="mobile-menu icon-button" type="button" onClick={() => setDrawerOpen(true)} aria-label="Open navigation"><Menu size={20} /></button>
-          <div className="topbar-account">
+          {brokerView && <div className="topbar-broker-context"><strong>Broker connection</strong><small>MT5 read-only snapshots</small></div>}
+          <div className={`topbar-account${brokerView ? ' topbar-account--hidden' : ''}`}>
             <button className="account-switcher" type="button" aria-expanded={accountOpen} onClick={() => setAccountOpen((value) => !value)}>
               <span className="account-avatar"><Command size={16} /></span>
               <span className="account-labels"><strong>{account?.label ?? 'Loading simulationâ€¦'}</strong><small>{account?.broker ?? 'Local simulation'}</small></span>
@@ -226,7 +229,8 @@ function App() {
               </m.div>}
             </AnimatePresence>
           </div>
-          <div className="topbar-state"><span className="mode-badge"><span />{account?.mode ?? 'SIMULATED'} Â· {account?.environment ?? 'DEMO'}</span><span className="state-divider" /><span className={`connection-dot${account?.connected ? ' connection-dot--online' : ''}`} /><span className="connection-copy">{account?.connected ? 'Connector demo fixture' : 'Connector offline'}</span></div>
+          <div className={`topbar-state${brokerView ? ' topbar-state--hidden' : ''}`}><span className="mode-badge"><span />{account?.mode ?? 'SIMULATED'} Â· {account?.environment ?? 'DEMO'}</span><span className="state-divider" /><span className={`connection-dot${account?.connected ? ' connection-dot--online' : ''}`} /><span className="connection-copy">{account?.connected ? 'Connector demo fixture' : 'Connector offline'}</span></div>
+          {brokerView && <div className="topbar-state"><span className="mode-badge"><span />MT5 · READ ONLY</span></div>}
           <div className="topbar-actions">
             <span className="topbar-date">LAST UPDATE <b>·</b> NOT AVAILABLE</span>
             <button className="icon-button unavailable-control" type="button" disabled aria-label="Notifications unavailable in preview" title="Notifications need the application backend"><Bell size={18} /><i /></button>
@@ -304,6 +308,9 @@ function App() {
             </div>
 
             <footer className="page-footer"><span><span className="footer-mark"><BotifyMark compact /></span>TRADERELAYCITY</span><span>SIMULATION <i /> LIVE MODE DISABLED</span><span>Built for clarity.</span></footer>
+          </> : brokerView ? <>
+            <BrokerPage focus={active === 'Positions' ? 'positions' : 'accounts'} />
+            <footer className="page-footer"><span><span className="footer-mark"><BotifyMark compact /></span>TRADERELAYCITY</span><span>MT5 READ ONLY <i /> ORDER EXECUTION DISABLED</span><span>Built for clarity.</span></footer>
           </> : active === 'Trade History' ? <>
             <TradeHistoryPage key={`${userId}:${account?.id ?? 'unavailable'}`} accountId={account?.id ?? ''} accountLabel={account?.label ?? 'Selected account'} currency={account?.balance.currency ?? 'USD'} userId={userId} />
             <footer className="page-footer"><span><span className="footer-mark"><BotifyMark compact /></span>TRADERELAYCITY</span><span>SIMULATION <i /> LIVE MODE DISABLED</span><span>Built for clarity.</span></footer>

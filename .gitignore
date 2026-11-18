@@ -15,3 +15,4 @@ connector/release-dist/
 **/__pycache__/
 .wrangler/
 .playwright-cli/
+/.codex/config.toml

@@ -122,3 +122,11 @@ Updated: 2026-11-09
 
 - The user supplied one username and password in the ignored local `.dev.vars`. Bootstrapped the local D1 owner with Better Auth's password hash, verified username/password sign-in, authenticated `/app` access, sign-out and subsequent `/app` redirect, then removed the plaintext `USERNAME` and `PASSWORD` lines from `.dev.vars`.
 - Read-only D1 checks confirmed one owner setting, one password hash and zero active sessions after sign-out. This is local only; no Cloudflare D1 database or remote owner has been configured.
+
+## 2026-11-18 native MT5 MCP read-only integration
+
+- Added owner pairing and revocable device credentials in D1 migration 0009 and `/api/broker/*` plus `/api/connector/*` routes. The first accepted snapshot binds broker, server, login, account type, and currency to a device. Later identity changes are denied. The Broker page shows separate account snapshots and open positions with observation time and stale state; simulation remains labeled separately.
+- Updated the Python connector for the installed official MCP SDK 2.3 API (`input_schema`, `is_error`, `structured_content`). The local terminal accepted the key and exposed 107 tools. Its broker connection was disconnected, so no account snapshot was uploaded or claimed as verified broker data. The connector performs MT5's workspace pre-flight and calls only read-only account and position tools for snapshots.
+- Added HTTPS outbound pairing/snapshot client, Credential Manager device-token storage, manual sync, optional 15-second automatic retry, and pause/resume. The MT5 key was already in Credential Manager; its redundant line was removed from ignored `.dev.vars` without printing the value.
+- Local migration 0009 applied. TypeScript tests passed 54/54, Python tests passed 19/19, the TypeScript production build completed, and React Doctor's changed-file scan found no new issue. Remote staging, packaged executable, connected FxPro snapshot, and nonempty position mapping remain unverified.
+- Strategy Tester MCP jobs, historical broker import, AI provider routing, command queue, demo execution, reconciliation, and all live order execution remain incomplete. The current source has no path that calls an MT5 `trade_*` tool.

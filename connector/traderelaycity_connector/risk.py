@@ -76,6 +76,8 @@ def _floor_step(value: Decimal, step: Decimal) -> Decimal:
 
 def evaluate_candidate(candidate: Candidate, account: AccountRisk, contract: ContractSpec, limits: RiskLimits) -> RiskDecision:
     reasons: list[str] = []
+    if any(isinstance(value, Decimal) and not value.is_finite() for source in (candidate, account, contract, limits) for value in vars(source).values()):
+        return RiskDecision(False, None, None, ("market, account, contract, and limit values must be finite",))
     if not limits.entries_enabled: reasons.append("new entries are disabled")
     if account.environment == "LIVE" and not LIVE_ENTRY_EXECUTION_ENABLED: reasons.append("live entry execution is disabled in this build")
     elif account.environment not in {"DEMO", "SIMULATED"}: reasons.append("unknown account environment")

@@ -2,7 +2,7 @@
 
 TradeRelayCity is a private forex and cryptocurrency trading control-room project with a local-first simulation. The web app is React + TypeScript + Vite, served with a TypeScript Hono Worker on Cloudflare Workers Static Assets and D1. A Windows connector source package is in `connector/`.
 
-The current local simulation has three isolated personas and D1-backed accounts, positions, events, decisions, and command states. Every fixture is labeled `SIMULATED`; the DB schema enforces `is_live=0`. The connector is an early read-only MCP setup wizard and **does not submit orders or connect to a deployed user account**. Live trading is disabled.
+The current local simulation has three isolated personas and D1-backed accounts, positions, events, decisions, and command states. Every fixture is labeled `SIMULATED`; the DB schema enforces `is_live=0`. An owner-paired connector can upload read-only MT5 account snapshots to the Worker when the terminal is connected to a broker account. Broker order submission is disabled.
 
 ## Run locally (PowerShell)
 
@@ -14,7 +14,7 @@ npm run dev
 
 Open `http://127.0.0.1:5173`. Sign in with the username and password chosen during local owner setup. The local D1 store is in `.wrangler/state`. Switch fixture personas from the account menu. No AI, broker, or Cloudflare API keys are needed for the local fixture UI.
 
-`npm test` runs focused TypeScript simulation tests. `npm run build` creates the Worker and asset bundles. The public landing page offers a Windows connector ZIP download; `connector\build-windows.ps1` builds the app folder from the locked Python requirements. See [connector notes](docs/windows-connector.md) for the download and release steps.
+`npm test` runs focused TypeScript simulation tests. `npm run build` creates the Worker and asset bundles. The public landing page downloads a single Windows connector executable; `connector\build-windows.ps1` builds it from the locked Python requirements and publishes the website asset. See [connector notes](docs/windows-connector.md) for the release steps.
 
 ## Research backtest
 
@@ -40,9 +40,9 @@ Set-Location connector
 - The website uses owner username/password sign-in with a D1-backed session cookie. Public sign-up, passkey, authenticator and email sign-in routes are inactive. The owner password is entered locally at setup and stored as a Better Auth password hash. Remote login and Worker CPU behavior still require validation before deployment.
 - The Groq structured-output adapter supports `openai/gpt-oss-20b` and `qwen/qwen3.8-27b`. It is not wired to a production endpoint or verified with a real key. The only callable AI path is a local, quota-limited, deterministic HOLD simulation.
 - The Assistant page is a local simulation feature. It stores persona/account-scoped conversations with a 90-day expiry and returns deterministic answers from saved account, open-position, command, decision, and synthetic `TradeOutcomeV1` records. It does not call an AI provider; broker-reconciled history, validated learning, live broker capabilities, and chat actions are not connected. Apply migrations `0005_account_chat.sql` and `0006_trade_history.sql` before using it.
-- FxPro account binding, device pairing, production connector polling and broker execution/reconciliation are not implemented. The connector remains read-only and live entries are disabled.
+- Owner device pairing and read-only snapshot upload are implemented in source. The connector can retry snapshots every 15 seconds while automatic sync is enabled. A connected broker account, applied migration 0009, and a deployed authenticated Worker are required to verify the complete path. Broker execution and reconciliation are not implemented; live entries are disabled.
 - The connector checks discovered MCP tools and optionally calls a read-only account-info tool. It blocks trade, shell, filesystem and web tools; it never claims that a successful handshake proves account binding.
-- Do not point the incomplete connector at a live account.
+- A live account can only be read; no order tool is called. Keep order execution disabled.
 
 ## Deployment
 
@@ -58,6 +58,7 @@ Hosting target is Cloudflare Workers + D1, not Oracle VM. Remote deployment need
 - [Security and credentials](docs/security-and-credentials.md)
 - [Cloudflare deployment](docs/cloudflare-deployment.md)
 - [Windows connector](docs/windows-connector.md)
+- [Native MT5 MCP setup](docs/mt5-mcp-setup.md)
 - [Friend setup](docs/friend-setup.md)
 - [Keys and first run](docs/keys-and-first-run.md)
 - [Costs and limits](docs/costs-and-limits.md)

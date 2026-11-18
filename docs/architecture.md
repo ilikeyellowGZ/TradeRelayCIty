@@ -25,3 +25,9 @@
 ## Limits
 
 Cloudflare Workers are request-driven and do not host the local MT5 terminal. The connector runs only while the user's Windows session, MT5, connector and internet are available. The system cannot guarantee execution during PC sleep, broker outages, Worker/D1 outages, or uncertain submission recovery.
+
+## Implemented read-only boundary (2026-11-18)
+
+The owner can create a short-lived pairing code through an authenticated Worker route. The Windows connector exchanges it for a revocable device token, stores that token in Windows Credential Manager, and uses outbound HTTPS to upload a bounded MT5 account snapshot. D1 stores a token digest and the latest broker snapshot. The first accepted snapshot fixes the device's broker/server/login identity. Owner-scoped reads display the observation time and stale state. Simulation fixtures remain separate from broker snapshots.
+
+The local MT5 connector uses the official MCP Python SDK. It calls the terminal workspace pre-flight, discovers tool schemas, then reads account info and open positions. It refuses upload when the terminal reports a disconnected broker session or incomplete identity. The earlier command-ledger, execution, AI, backtest, and reconciliation paragraphs above describe intended architecture where those capabilities are not yet marked implemented in `docs/progress.md`.

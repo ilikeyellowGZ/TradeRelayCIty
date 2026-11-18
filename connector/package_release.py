@@ -1,49 +1,44 @@
-"""Package a fresh PyInstaller folder as the website's Windows download."""
+"""Publish the single-file Windows connector as the website download."""
 
 from __future__ import annotations
 
 import hashlib
 import os
 from pathlib import Path
-from zipfile import ZIP_DEFLATED, ZipFile
 
 
 CONNECTOR_DIR = Path(__file__).resolve().parent
 PROJECT_DIR = CONNECTOR_DIR.parent
-SOURCE = CONNECTOR_DIR / "release-dist" / "TradeRelayCity-Connector"
-DESTINATION = PROJECT_DIR / "public" / "downloads" / "TradeRelayCity-Connector-Windows.zip"
+SOURCE = CONNECTOR_DIR / "release-dist" / "TradeRelayCity-Connector.exe"
+DESTINATION = PROJECT_DIR / "public" / "downloads" / "TradeRelayCity-Connector-Windows.exe"
+OLD_ARCHIVE = DESTINATION.with_suffix(".zip")
 MAX_STATIC_ASSET_BYTES = 25 * 1024 * 1024
-FORBIDDEN_NAMES = {"config.json", ".dev.vars", ".env"}
 
 
 def main() -> None:
-    executable = SOURCE / "TradeRelayCity-Connector.exe"
-    if not executable.is_file():
-        raise SystemExit(f"Build the release connector first: missing {executable}")
-
-    files = sorted(path for path in SOURCE.rglob("*") if path.is_file())
-    for path in files:
-        if path.name.lower() in FORBIDDEN_NAMES or path.suffix.lower() in {".pem", ".key"}:
-            raise SystemExit(f"Refusing to package a possible credential file: {path}")
+    if not SOURCE.is_file():
+        raise SystemExit(f"Build the release executable first: missing or invalid {SOURCE}")
+    with SOURCE.open("rb") as source:
+        if source.read(2) != b"MZ":
+            raise SystemExit(f"Build the release executable first: missing or invalid {SOURCE}")
+    if SOURCE.stat().st_size > MAX_STATIC_ASSET_BYTES:
+        raise SystemExit("Connector executable exceeds Cloudflare's 25 MiB static asset limit.")
 
     DESTINATION.parent.mkdir(parents=True, exist_ok=True)
-    temporary = DESTINATION.with_suffix(".zip.tmp")
+    temporary = DESTINATION.with_suffix(".exe.tmp")
     try:
-        with ZipFile(temporary, "w", compression=ZIP_DEFLATED, compresslevel=9) as archive:
-            for path in files:
-                archive.write(path, (Path(SOURCE.name) / path.relative_to(SOURCE)).as_posix())
-            archive.write(CONNECTOR_DIR / "RELEASE_README.txt", f"{SOURCE.name}/README.txt")
-        if temporary.stat().st_size > MAX_STATIC_ASSET_BYTES:
-            raise SystemExit("Connector ZIP exceeds Cloudflare's 25 MiB static asset limit.")
-        with ZipFile(temporary) as archive:
-            if archive.testzip() is not None:
-                raise SystemExit("Connector ZIP failed its integrity check.")
+        with SOURCE.open("rb") as source, temporary.open("wb") as target:
+            while chunk := source.read(1024 * 1024):
+                target.write(chunk)
+        if hashlib.sha256(temporary.read_bytes()).digest() != hashlib.sha256(SOURCE.read_bytes()).digest():
+            raise SystemExit("Connector executable copy failed its integrity check.")
         os.replace(temporary, DESTINATION)
     finally:
         temporary.unlink(missing_ok=True)
 
+    OLD_ARCHIVE.unlink(missing_ok=True)
     digest = hashlib.sha256(DESTINATION.read_bytes()).hexdigest()
-    print(f"Packaged {DESTINATION} ({DESTINATION.stat().st_size} bytes, SHA-256 {digest})")
+    print(f"Published {DESTINATION} ({DESTINATION.stat().st_size} bytes, SHA-256 {digest})")
 
 
 if __name__ == "__main__":

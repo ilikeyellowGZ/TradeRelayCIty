@@ -1,0 +1,58 @@
+.topbar-account--hidden, .topbar-state--hidden { display: none; }
+.topbar-broker-context { display: grid; gap: 4px; min-width: 180px; }
+.topbar-broker-context strong { color: var(--text); font-size: 14px; }
+.topbar-broker-context small { color: var(--text-muted); font-size: 12px; }
+.broker-page { display: grid; gap: 24px; color: var(--text); }
+.broker-intro { margin-bottom: 0; }
+.broker-intro h1 { margin: 0; color: var(--text); font-family: "Inter Variable", Inter, sans-serif; font-size: clamp(32px, 4vw, 48px); font-weight: 700; line-height: 1.1; letter-spacing: -.04em; }
+.broker-refresh { flex: 0 0 auto; align-self: flex-end; white-space: nowrap; }
+.broker-state-note { display: flex; align-items: flex-start; gap: 12px; padding: 16px 20px; border: 1px solid var(--border); border-radius: 20px; color: var(--text-muted); background: var(--surface); font-size: 14px; line-height: 1.6; }
+.broker-state-note svg { flex: 0 0 auto; color: var(--positive); }
+.broker-error { margin: 0; padding: 16px; border: 1px solid var(--negative); border-radius: 16px; color: var(--negative); background: color-mix(in srgb, var(--negative) 10%, var(--surface)); }
+.broker-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; }
+.broker-panel { padding: 32px; }
+.broker-panel-heading, .broker-account-heading, .broker-account-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.broker-panel-heading h2, .broker-account-heading h2 { margin: 8px 0 0; font-size: 24px; letter-spacing: -.025em; }
+.broker-panel-heading > svg { color: var(--cream-100); }
+.broker-panel > p { max-width: 520px; margin: 20px 0 24px; color: var(--text-muted); font-size: 16px; line-height: 1.6; }
+.broker-code-box { display: grid; gap: 8px; margin-top: 24px; padding: 20px; border: 1px solid var(--border); border-radius: 20px; background: var(--surface-raised); }
+.broker-code-box > span { color: var(--text-muted); font-size: 12px; font-weight: 650; text-transform: uppercase; letter-spacing: .08em; }
+.broker-code-box > div { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
+.broker-code-box code { overflow-wrap: anywhere; font: 600 20px/1.5 "JetBrains Mono", monospace; letter-spacing: .06em; }
+.broker-code-box button, .broker-device-list button { display: inline-flex; min-height: 44px; align-items: center; justify-content: center; gap: 8px; padding: 0 16px; border: 1px solid var(--border); border-radius: 999px; color: var(--text); background: var(--surface); cursor: pointer; }
+.broker-code-box button:hover, .broker-device-list button:hover { background: var(--surface-raised); }
+.broker-code-box small { color: var(--text-muted); font-size: 12px; line-height: 1.5; }
+.broker-count { display: grid; min-width: 40px; height: 40px; place-items: center; border-radius: 50%; color: var(--navy-950); background: var(--cream-100); font: 600 16px "JetBrains Mono", monospace; }
+.broker-device-list { display: grid; gap: 0; margin: 24px 0 0; padding: 0; list-style: none; }
+.broker-device-list li { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px; padding: 16px 0; border-top: 1px solid var(--border); }
+.broker-device-list li > div:first-child { display: grid; min-width: 0; gap: 4px; }
+.broker-device-list strong { font-size: 15px; }
+.broker-device-list span, .broker-device-list small { color: var(--text-muted); font-size: 12px; overflow-wrap: anywhere; }
+.broker-device-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.broker-device-actions button:first-child { border-color: var(--negative); color: var(--negative); }
+.broker-account-heading { align-items: flex-end; margin-top: 8px; }
+.broker-account-heading > span { color: var(--text-muted); font: 500 13px "JetBrains Mono", monospace; }
+.broker-empty { display: grid; justify-items: start; gap: 8px; color: var(--text-muted); }
+.broker-empty h3, .broker-empty p { margin: 0; }
+.broker-empty svg { color: var(--cream-100); }
+.broker-account { display: grid; gap: 24px; padding: 32px; }
+.broker-account-top h3 { margin: 8px 0 4px; font-size: 32px; letter-spacing: -.04em; }
+.broker-account-top p { margin: 0; color: var(--text-muted); font: 500 13px/1.5 "JetBrains Mono", monospace; overflow-wrap: anywhere; }
+.broker-freshness { padding: 8px 12px; border: 1px solid var(--positive); border-radius: 999px; color: var(--positive); font-size: 12px; font-weight: 650; white-space: nowrap; }
+.broker-freshness--stale { border-color: var(--warning); color: var(--warning); }
+.broker-metrics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.broker-metrics > div { display: grid; gap: 8px; min-width: 0; padding: 20px; border: 1px solid var(--border); border-radius: 20px; background: var(--surface-raised); }
+.broker-metrics span { color: var(--text-muted); font-size: 12px; }
+.broker-metrics strong { overflow-wrap: anywhere; font-size: clamp(20px, 2vw, 32px); font-variant-numeric: tabular-nums; letter-spacing: -.04em; }
+.broker-observed { margin: 0; color: var(--text-muted); font-size: 13px; line-height: 1.5; }
+.broker-table-wrap { max-width: 100%; overflow-x: auto; border: 1px solid var(--border); border-radius: 20px; }
+.broker-table-wrap table { width: 100%; min-width: 850px; border-collapse: collapse; text-align: left; }
+.broker-table-wrap th, .broker-table-wrap td { padding: 12px 16px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+.broker-table-wrap th { color: var(--text-muted); font-size: 12px; font-weight: 600; }
+.broker-table-wrap td { font-size: 14px; font-variant-numeric: tabular-nums; }
+.broker-table-wrap td small { display: block; margin-top: 4px; color: var(--text-muted); font: 400 11px "JetBrains Mono", monospace; }
+.broker-profit { color: var(--positive); }
+.broker-loss { color: var(--negative); }
+.broker-footer { display: flex; align-items: center; gap: 8px; color: var(--text-muted); font-size: 12px; }
+@media (max-width: 900px) { .broker-grid { grid-template-columns: 1fr; } }
+@media (max-width: 600px) { .broker-panel, .broker-account { padding: 20px; } .broker-intro { align-items: flex-start; flex-direction: column; } .broker-refresh { align-self: flex-start; } .broker-metrics { grid-template-columns: 1fr; } .broker-account-top { flex-direction: column; } .broker-state-note { padding: 16px; } }

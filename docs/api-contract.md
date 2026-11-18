@@ -25,3 +25,16 @@ The implemented command states are `pending`, `claimed`, `submitting`, `filled`,
 Trade History returns a versioned `TradeOutcomeV1` read model with fill, timeline, and evidence arrays. The simulation fixtures cover closed outcomes and attempted entries; they do not represent real MT5/FxPro deals. Net P&L uses the stored inclusive broker-style net when present; otherwise it is calculated from gross P&L minus all known charges exactly once. Cross-currency totals are not converted.
 
 The chat routes above are local simulation fixtures, not authenticated production account chat. They are disabled outside loopback `SIMULATION_MODE=true`. They answer only from current simulated account snapshots, positions, commands, and decisions; reconciled trade history, learning, broker capabilities, production provider calls, and order actions are unavailable.
+
+## Read-only broker pairing and snapshots (migration 0009)
+
+| Method | Path | Authentication | Result |
+|---|---|---|---|
+| POST | `/api/broker/pairing-codes` | Owner session and same-origin request | Creates a single-use 20-character code valid for 10 minutes; returns it once |
+| GET | `/api/broker/devices` | Owner session | Lists paired and revoked devices, their last-seen times and account identity |
+| DELETE | `/api/broker/devices/{id}` | Owner session and same-origin request | Revokes a device token |
+| GET | `/api/broker/accounts` | Owner session | Lists owner-bound latest account snapshots and `stale` flag |
+| POST | `/api/connector/pair` | One-time code | Returns a device ID and 256-bit bearer token once |
+| POST | `/api/connector/snapshot` | Device bearer token | Validates and stores an account/position snapshot; rejects changed account identity |
+
+The Worker stores token digests, not plaintext tokens. Pairing and snapshots are owner/device scoped in D1. Snapshot uploads are bounded to 32 KiB, observed within the last 120 seconds, and contain no MCP or AI keys. The snapshot endpoint returns `mode: BROKER_READ_ONLY`. It never queues a trade. Broker values are snapshots, not a streaming feed; `stale` becomes true after 60 seconds. These routes have local unit/integration tests but no connected-broker or remote staging proof yet.

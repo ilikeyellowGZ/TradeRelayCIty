@@ -19,7 +19,7 @@ class CREDENTIAL(ctypes.Structure):
 def _api():
     if __import__("sys").platform != "win32":
         raise CredentialStoreError("Windows Credential Manager is only available on Windows.")
-    return ctypes.windll.advapi32, ctypes.windll.kernel32
+    return ctypes.WinDLL("advapi32", use_last_error=True), ctypes.WinDLL("kernel32", use_last_error=True)
 
 def store_secret(target: str, secret: str) -> None:
     advapi32, _ = _api()

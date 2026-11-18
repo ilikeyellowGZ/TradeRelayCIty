@@ -28,6 +28,7 @@
   "devDependencies": {
     "@cloudflare/vite-plugin": "^1.67.0",
     "@cloudflare/vitest-plugin": "^1.6.0",
+    "@resvg/resvg-js": "^2.6.2",
     "@types/react": "^19.1.12",
     "@types/react-dom": "^19.1.9",
     "@vitejs/plugin-react": "^5.0.4",

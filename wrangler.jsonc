@@ -12,5 +12,17 @@
   },
   "d1_databases": [
     { "binding": "DB", "database_name": "traderelaycity", "database_id": "REPLACE_AFTER_CREATING_D1", "migrations_dir": "migrations" }
-  ]
+  ],
+  "env": {
+    "staging": {
+      "workers_dev": true,
+      "d1_databases": [
+        { "binding": "DB", "database_name": "traderelaycity-staging", "database_id": "da53b2ba-c0f2-43b8-befa-0d0a0eca3d3b", "migrations_dir": "migrations" }
+      ],
+      "vars": {
+        "SIMULATION_MODE": "false",
+        "APP_BASE_URL": "https://traderelaycity-staging.service-heyywebb.workers.dev"
+      }
+    }
+  }
 }

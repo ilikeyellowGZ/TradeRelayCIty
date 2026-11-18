@@ -59,6 +59,7 @@ Use a 4px base scale. Use the full available desktop width with fluid 4vw side g
 ### Forms, tables, assistant and dialogs
 - Use shared themed surfaces, visible validation, 56px table rows, aligned columns, 14px content, compact pill filters and readable assistant message widths.
 - Preserve existing confirmation and approval flows for consequential controls.
+- The Broker page separates paired devices from MT5 account snapshots. It shows a one-time pairing code in a clearly labeled copyable field, its expiry, revocation controls, and an account card with broker/server/login, DEMO or LIVE type, balance, equity, open positions, and observation time. Stale and disconnected states suppress any impression of current data; no trade control appears on this read-only page.
 
 ### Buttons, tabs and states
 - Pill controls use at least 44px interactive targets with visible focus, hover, pressed, disabled, pending and error states.
@@ -96,7 +97,7 @@ The landing uses fluid `clamp(16px, 5vw, 80px)` gutters and no overall width cap
 ### Public CTA and text link
 - **Structure:** Real anchor with at least 44px target, arrow icon where shown.
 - **States:** Default, hover, pressed, focus-visible. Blue fill is reserved for primary actions; secondary actions are underlined.
-- The Windows connector download uses a distinct outlined secondary button beside sign-in. Its label names Windows and the nearby note states that the package is a read-only preview. The link points to a same-origin ZIP asset and requires no website session.
+- The Windows connector download uses a distinct outlined secondary button beside sign-in. Its label names Windows and the nearby note states that the app is a read-only preview. The link points directly to a same-origin executable and requires no website session. The executable and Tk window use the existing candlestick mark as their icon.
 
 ### Illustration and preview panel
 - **Structure:** Decorative still life image hidden from assistive technology; real HTML preview list layered above it.
