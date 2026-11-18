@@ -36,7 +36,7 @@ The packaging script checks the executable copy and enforces Cloudflare's 25 MiB
 3. Download `TradeRelayCity-Connector-Windows.exe` from the website and open it. For development on this PC, run `./.venv/Scripts/python.exe ./connector_launcher.py` from `connector/`.
 4. In the connector window, enter the website URL, the exact MT5 MCP endpoint and the copied Bearer key. Select **Save local settings**, then **Test connection (read only)**. The key is stored in Windows Credential Manager. Review the returned account information in MT5; the connector still labels account binding unconfirmed.
 
-The test calls `list_tools` and, only when the discovered schema requires no arguments, `get_trading_account_info`. It never invokes any `trade_*` operation. Reported tools are filtered to an explicit read-only allowlist; shell, file editing, filesystem and trading operations are blocked.
+The test initializes the official MCP Python SDK, calls MT5's required `get_workspace_info` pre-flight, discovers tools, and reads `get_trading_account_info` only when its discovered schema requires no arguments. Snapshot sync also reads `get_trading_open_positions`. It never invokes a `trade_*` operation. Reported tools are filtered to an explicit read-only allowlist.
 
 If the test reports **HTTP 401**, MT5 rejected the saved key. In **Tools > Options > MCP**, copy the current key for the **terminal** endpoint and paste only the token into the connector's Bearer key field (omit `Bearer `). Save and retry. The connector does not read `MT5_API_KEY` from `.dev.vars`. If the MCP tab or internal server is missing, update MT5 and confirm the internal server is enabled before retrying. After downloading an updated app, close the old connector before launching the new executable.
 

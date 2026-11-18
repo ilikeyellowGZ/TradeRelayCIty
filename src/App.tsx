@@ -13,6 +13,7 @@ import { ScoreboardChart } from './components/ScoreboardChart'
 import { AssistantPage } from './components/AssistantPage'
 import { TradeHistoryPage } from './features/trade-history/TradeHistoryPage'
 import { BrokerPage } from './features/broker/BrokerPage'
+import { BrokerAssistantPage } from './features/broker/BrokerAssistantPage'
 import { authClient } from './auth-client'
 
 type SimUser = { id: string; name: string; role: 'owner' | 'member' }
@@ -131,8 +132,10 @@ function App() {
   const [signOutError, setSignOutError] = useState('')
   const [aiMessage, setAiMessage] = useState('Mock AI is idle; live AI is not configured.')
   const [aiBusy, setAiBusy] = useState(false)
+  const [assistantSource, setAssistantSource] = useState<'simulation' | 'broker'>('simulation')
   const dashboardRef = useRef<HTMLDivElement>(null)
-  const brokerView = active === 'Accounts' || active === 'Positions'
+  const brokerPage = active === 'Accounts' || active === 'Positions'
+  const brokerView = brokerPage || (active === 'Assistant' && assistantSource === 'broker')
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme
@@ -230,9 +233,8 @@ function App() {
             </AnimatePresence>
           </div>
           <div className={`topbar-state${brokerView ? ' topbar-state--hidden' : ''}`}><span className="mode-badge"><span />{account?.mode ?? 'SIMULATED'} Â· {account?.environment ?? 'DEMO'}</span><span className="state-divider" /><span className={`connection-dot${account?.connected ? ' connection-dot--online' : ''}`} /><span className="connection-copy">{account?.connected ? 'Connector demo fixture' : 'Connector offline'}</span></div>
-          {brokerView && <div className="topbar-state"><span className="mode-badge"><span />MT5 · READ ONLY</span></div>}
           <div className="topbar-actions">
-            <span className="topbar-date">LAST UPDATE <b>·</b> NOT AVAILABLE</span>
+            <span className="topbar-date">{brokerView ? 'SNAPSHOT TIME SHOWN BELOW' : <>LAST UPDATE <b>·</b> NOT AVAILABLE</>}</span>
             <button className="icon-button unavailable-control" type="button" disabled aria-label="Notifications unavailable in preview" title="Notifications need the application backend"><Bell size={18} /><i /></button>
             <button className="theme-toggle" type="button" onClick={() => setTheme((value) => value === 'dark' ? 'light' : 'dark')} aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`} title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`}>{theme === 'dark' ? <Sun size={17} /> : <Moon size={17} />}<span>{theme === 'dark' ? 'Light' : 'Dark'}</span></button>
             <button className="icon-button signout-button" type="button" onClick={() => void signOut()} aria-label="Sign out" title="Sign out"><LogOut size={18} /></button>
@@ -308,15 +310,16 @@ function App() {
             </div>
 
             <footer className="page-footer"><span><span className="footer-mark"><BotifyMark compact /></span>TRADERELAYCITY</span><span>SIMULATION <i /> LIVE MODE DISABLED</span><span>Built for clarity.</span></footer>
-          </> : brokerView ? <>
+          </> : brokerPage ? <>
             <BrokerPage focus={active === 'Positions' ? 'positions' : 'accounts'} />
             <footer className="page-footer"><span><span className="footer-mark"><BotifyMark compact /></span>TRADERELAYCITY</span><span>MT5 READ ONLY <i /> ORDER EXECUTION DISABLED</span><span>Built for clarity.</span></footer>
           </> : active === 'Trade History' ? <>
             <TradeHistoryPage key={`${userId}:${account?.id ?? 'unavailable'}`} accountId={account?.id ?? ''} accountLabel={account?.label ?? 'Selected account'} currency={account?.balance.currency ?? 'USD'} userId={userId} />
             <footer className="page-footer"><span><span className="footer-mark"><BotifyMark compact /></span>TRADERELAYCITY</span><span>SIMULATION <i /> LIVE MODE DISABLED</span><span>Built for clarity.</span></footer>
           </> : active === 'Assistant' ? <>
-            <AssistantPage key={`${userId}:${account?.id ?? 'unavailable'}`} account={account} userId={userId} />
-            <footer className="page-footer"><span><span className="footer-mark"><BotifyMark compact /></span>TRADERELAYCITY</span><span>SIMULATION <i /> LIVE MODE DISABLED</span><span>Built for clarity.</span></footer>
+            <div className="assistant-source-switch" role="group" aria-label="Assistant data source"><button type="button" aria-pressed={assistantSource === 'simulation'} onClick={() => setAssistantSource('simulation')}>Simulation records</button><button type="button" aria-pressed={assistantSource === 'broker'} onClick={() => setAssistantSource('broker')}>MT5 snapshots</button></div>
+            {assistantSource === 'broker' ? <BrokerAssistantPage onOpenAccounts={() => setActive('Accounts')} /> : <AssistantPage key={`${userId}:${account?.id ?? 'unavailable'}`} account={account} userId={userId} />}
+            <footer className="page-footer"><span><span className="footer-mark"><BotifyMark compact /></span>TRADERELAYCITY</span><span>{assistantSource === 'broker' ? 'MT5 READ ONLY' : 'SIMULATION'} <i /> ORDER EXECUTION DISABLED</span><span>Built for clarity.</span></footer>
           </> : <>
             <div className="page-intro page-intro--simple"><div><div className="overline"><span className="overline-line" />WORKSPACE</div><h1>{active}<span className="title-period">.</span></h1><p className="page-subtitle">TradeRelayCity simulation workspace.</p></div><div className="preview-stamp"><span>SIMULATED</span><span className="stamp-divider" /><time>07 NOV 2026</time></div></div>
             <SectionPreview active={active} />

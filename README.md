@@ -39,7 +39,7 @@ Set-Location connector
 - Simulation API and seed data are local only. It is not authenticated production account access.
 - The website uses owner username/password sign-in with a D1-backed session cookie. Public sign-up, passkey, authenticator and email sign-in routes are inactive. The owner password is entered locally at setup and stored as a Better Auth password hash. Remote login and Worker CPU behavior still require validation before deployment.
 - The Groq structured-output adapter supports `openai/gpt-oss-20b` and `qwen/qwen3.8-27b`. It is not wired to a production endpoint or verified with a real key. The only callable AI path is a local, quota-limited, deterministic HOLD simulation.
-- The Assistant page is a local simulation feature. It stores persona/account-scoped conversations with a 90-day expiry and returns deterministic answers from saved account, open-position, command, decision, and synthetic `TradeOutcomeV1` records. It does not call an AI provider; broker-reconciled history, validated learning, live broker capabilities, and chat actions are not connected. Apply migrations `0005_account_chat.sql` and `0006_trade_history.sql` before using it.
+- The Assistant has separate simulation and MT5 snapshot sources. The simulation source stores persona/account-scoped conversations and answers from fixture records. The MT5 source answers a limited set of account questions from the latest owner-bound snapshot, including its observation time and stale status. Neither source calls an AI provider or trades. Broker-reconciled history, validated learning, and market analysis are not connected. Apply migrations `0005_account_chat.sql`, `0006_trade_history.sql`, and `0009_connector_pairing.sql` before using these sources.
 - Owner device pairing and read-only snapshot upload are implemented in source. The connector can retry snapshots every 15 seconds while automatic sync is enabled. A connected broker account, applied migration 0009, and a deployed authenticated Worker are required to verify the complete path. Broker execution and reconciliation are not implemented; live entries are disabled.
 - The connector checks discovered MCP tools and optionally calls a read-only account-info tool. It blocks trade, shell, filesystem and web tools; it never claims that a successful handshake proves account binding.
 - A live account can only be read; no order tool is called. Keep order execution disabled.
@@ -52,6 +52,7 @@ Hosting target is Cloudflare Workers + D1, not Oracle VM. Remote deployment need
 
 - [Architecture](docs/architecture.md)
 - [Implementation progress](docs/progress.md)
+- [MT5 integration checklist](docs/integration-checklist.md)
 - [API contract](docs/api-contract.md)
 - [Trade History handover](docs/features/trade-history-handover.md)
 - [Strategy specification](docs/strategy.md)

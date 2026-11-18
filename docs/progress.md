@@ -130,3 +130,16 @@ Updated: 2026-11-09
 - Added HTTPS outbound pairing/snapshot client, Credential Manager device-token storage, manual sync, optional 15-second automatic retry, and pause/resume. The MT5 key was already in Credential Manager; its redundant line was removed from ignored `.dev.vars` without printing the value.
 - Local migration 0009 applied. TypeScript tests passed 54/54, Python tests passed 19/19, the TypeScript production build completed, and React Doctor's changed-file scan found no new issue. Remote staging, packaged executable, connected FxPro snapshot, and nonempty position mapping remain unverified.
 - Strategy Tester MCP jobs, historical broker import, AI provider routing, command queue, demo execution, reconciliation, and all live order execution remain incomplete. The current source has no path that calls an MT5 `trade_*` tool.
+
+## 2026-11-18 direct Windows app download and staging check
+
+- Reused the website's candlestick mark for the Windows executable and Tk window icon. The release build now produces one PyInstaller executable and publishes `public/downloads/TradeRelayCity-Connector-Windows.exe` directly; the old ZIP was removed from the website asset set.
+- The executable is 24,526,864 bytes, below Cloudflare's 25 MiB per-asset limit. Its public and built-site SHA-256 hashes match, PE resources contain the icon, the local preview returned HTTP 200 with `application/octet-stream`, `npm run build` passed, and React Doctor found no new changed-file issues. The binary remains unsigned and Windows Smart App Control may block it.
+- Staging deployment version `34244972-3999-48d6-b783-beefc6e1797e` serves the direct executable over HTTPS. Anonymous `/app` redirects to `/login`, `/api/health` returns 200, and the simulation route returns 404. The former ZIP URL now resolves to the SPA fallback HTML, not a ZIP download.
+- The local MT5 MCP read-only diagnostic succeeded using the stored key, but MT5 reports a disconnected broker connection and a REAL account. Demo snapshot and order validation remain blocked until a connected demo account is available. No trade tool was called.
+
+## 2026-11-18 grounded MT5 snapshot questions
+
+- Added an owner-scoped question endpoint and an **MT5 snapshots** source in the existing Assistant destination. It answers balance, equity, floating P&L, open positions, and account identity from the latest persisted snapshot with observation time and stale labeling. Other questions return an explicit data-unavailable response. It is deterministic and does not call an AI provider or broker trading tool.
+- The Assistant's simulation source remains separate. Provider-backed explanations, trade-history analysis, and strategy backtests are still unconnected.
+- Verification after this change: 57 TypeScript tests and 32 Python connector tests passed; the production build completed; React Doctor found no new changed-file issue. Browser checks at 375, 768, and 1280 pixels exercised the MT5 source switch, a synthetic stale account answer, and the empty Broker page with no page-level horizontal overflow or runtime error. The browser data was synthetic UI test data, not a verified broker result.

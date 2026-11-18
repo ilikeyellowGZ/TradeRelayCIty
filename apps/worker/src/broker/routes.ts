@@ -1,6 +1,7 @@
 import { Hono } from 'hono'
 import { createAuth } from '../auth'
 import { digestSecret, normalizeSnapshot, randomDeviceToken, randomPairingCode } from './model'
+import { answerBrokerQuestion } from './assistant'
 
 type Bindings = { DB: D1Database; APP_BASE_URL?: string; BETTER_AUTH_SECRET?: string }
 type Variables = { ownerId: string; deviceId: string; deviceOwnerId: string }
@@ -62,6 +63,30 @@ ownerBrokerRoutes.get('/accounts', async (c) => {
   }))
   c.header('cache-control', 'no-store')
   return c.json({ accounts })
+})
+
+ownerBrokerRoutes.post('/accounts/:id/questions', async (c) => {
+  const raw = await c.req.text()
+  if (raw.length > 1024) return c.json({ error: 'Question exceeds size limit.' }, 413)
+  let body: { question?: unknown }
+  try { body = JSON.parse(raw) as typeof body } catch { return c.json({ error: 'Invalid JSON.' }, 400) }
+  if (typeof body.question !== 'string') return c.json({ error: 'QUESTION_INVALID' }, 400)
+  const row = await c.env.DB.prepare('SELECT a.broker,a.server,a.login,a.environment,a.currency,s.balance,s.equity,s.positions_json AS positionsJson,s.observed_at AS observedAt FROM broker_accounts a INNER JOIN connector_devices d ON d.id=a.device_id AND d.revoked_at IS NULL INNER JOIN broker_snapshots s ON s.account_id=a.id WHERE a.id=? AND a.owner_id=?').bind(c.req.param('id'), c.get('ownerId')).first<{
+    broker: string; server: string; login: string; environment: 'DEMO' | 'LIVE'; currency: string; balance: number; equity: number; positionsJson: string; observedAt: string
+  }>()
+  if (!row) return c.json({ error: 'Account snapshot not found.' }, 404)
+  try {
+    const answer = answerBrokerQuestion(body.question, {
+      observedAt: row.observedAt,
+      account: { broker: row.broker, server: row.server, login: row.login, environment: row.environment, currency: row.currency, balance: row.balance, equity: row.equity },
+      positions: JSON.parse(row.positionsJson),
+    })
+    c.header('cache-control', 'no-store')
+    return c.json(answer)
+  } catch (error) {
+    if (error instanceof Error && error.message === 'QUESTION_INVALID') return c.json({ error: 'QUESTION_INVALID' }, 400)
+    return c.json({ error: 'Account snapshot unavailable.' }, 503)
+  }
 })
 
 connectorBrokerRoutes.post('/pair', async (c) => {

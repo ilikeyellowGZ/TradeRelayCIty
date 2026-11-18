@@ -24,3 +24,5 @@ The website shows last-observed time and stale status. It never claims a snapsho
 ## Verification and current limits
 
 Run `npm test -- --run`, `npm run build`, and from the project root `connector/.venv/Scripts/python.exe -m unittest discover -s connector/tests -v`. The local terminal handshake was verified with the configured key and reported 107 tools, but its broker connection was disconnected at the time of testing. Read-only account response fields were inspected without printing credentials or login identifiers. A real FxPro snapshot, nonempty open-position mapping, remote pairing, and the packaged connector executable still require validation.
+
+The terminal also advertised `tester_prepare_config`, `tester_run_backtest`, `tester_get_status`, `tester_get_report`, and optimization tools. Their input schemas were discovered, but no Expert Advisor path, tester configuration, or broker history was provided, so no MT5 tester job was run. The existing CSV research backtest remains separate from MT5 Strategy Tester results.

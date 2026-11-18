@@ -34,7 +34,10 @@ The chat routes above are local simulation fixtures, not authenticated productio
 | GET | `/api/broker/devices` | Owner session | Lists paired and revoked devices, their last-seen times and account identity |
 | DELETE | `/api/broker/devices/{id}` | Owner session and same-origin request | Revokes a device token |
 | GET | `/api/broker/accounts` | Owner session | Lists owner-bound latest account snapshots and `stale` flag |
+| POST | `/api/broker/accounts/{id}/questions` | Owner session and same-origin request | Returns a deterministic, read-only answer grounded in that account's latest snapshot; unsupported questions are declined |
 | POST | `/api/connector/pair` | One-time code | Returns a device ID and 256-bit bearer token once |
 | POST | `/api/connector/snapshot` | Device bearer token | Validates and stores an account/position snapshot; rejects changed account identity |
 
 The Worker stores token digests, not plaintext tokens. Pairing and snapshots are owner/device scoped in D1. Snapshot uploads are bounded to 32 KiB, observed within the last 120 seconds, and contain no MCP or AI keys. The snapshot endpoint returns `mode: BROKER_READ_ONLY`. It never queues a trade. Broker values are snapshots, not a streaming feed; `stale` becomes true after 60 seconds. These routes have local unit/integration tests but no connected-broker or remote staging proof yet.
+
+The snapshot question route accepts at most 500 characters and returns `{answer, observedAt, stale, source: "MT5_ACCOUNT_SNAPSHOT", mode: "BROKER_READ_ONLY", supported}`. It answers balance, equity, floating P&L, open positions, and account identity from the persisted snapshot. It does not call an AI provider, access local MCP, analyze market structure, or place orders. Questions needing broker history, strategy evidence, or contract details return `supported: false`.
