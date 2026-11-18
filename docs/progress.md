@@ -160,3 +160,9 @@ Updated: 2026-11-09
 - Added server-side OpenAI, Anthropic, and xAI structured-output adapters that classify questions into a fixed set of snapshot intents. The provider receives only the user-entered text and open symbol names; the Worker renders all account values from the owner-bound MT5 snapshot. Explicit history, market, risk, and trading-action requests are declined before a provider call.
 - Added owner-only capability and AI-question routes, a 30-request UTC daily cap in migration 0012, and an opt-in control in the existing MT5 Assistant. The control is disabled when no server-side provider/model/key is configured. No provider key is present, and no live provider response or bill was verified.
 - Local verification: 65 TypeScript tests passed, including mocked responses for all three providers, malformed output and symbol rejection, foreign-owner denial, and quota enforcement. The production build passed. Synthetic UI checks at 375 and 1280 pixels exercised the opt-in route and showed no page error or horizontal overflow. These synthetic responses are not broker or provider verification.
+
+## 2026-11-18 staging AI classifier release
+
+- Applied migration 0012 to staging D1 and deployed Worker version `8bc7438b-e2fa-4208-aa43-102565ac22ed` from the generated staging configuration. The binding targets `traderelaycity-staging`; the build cleanup removed staged `.dev.vars`.
+- Remote smoke checks returned 200 for `/api/health` (`BROKER_READ_ONLY`, `isLive=false`), 302 for unsigned `/app`, 401 for unsigned `/api/broker/ai-capabilities`, and 404 for `/api/simulation/accounts`. No staging migration remains pending.
+- Staging has no configured broker AI provider/model/key, so its AI opt-in control remains unavailable. No live model call or connected MT5 snapshot was verified.
