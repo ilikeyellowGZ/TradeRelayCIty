@@ -20,6 +20,16 @@ describe('read-only broker snapshot answers', () => {
     expect(positions.answer).toContain('-$10.00')
   })
 
+  it('keeps a classified broker symbol exact when suffix variants also exist', () => {
+    const withSuffix = { ...snapshot, positions: [...snapshot.positions, { ...snapshot.positions[0], ticket: '43', symbol: 'EURUSD.a' }] }
+    const answer = answerBrokerQuestion('What are my EURUSD open positions?', withSuffix, now, 'EURUSD')
+    expect(answer.answer).toContain('1 open EURUSD position')
+    expect(answer.answer).not.toContain('EURUSD.a')
+    const suffix = answerBrokerQuestion('What are my EURUSD.a open positions?', withSuffix, now, 'EURUSD.a')
+    expect(suffix.answer).toContain('1 open EURUSD.a position')
+    expect(suffix.answer).not.toContain('BUY 0.1 EURUSD,')
+  })
+
   it('declines unsupported history and market claims', () => {
     for (const question of ['How much did I lose today?', 'Why did my last five trades fail?', 'Run a backtest', 'Place an order now', 'Open EURUSD trade']) {
       const answer = answerBrokerQuestion(question, snapshot, now)

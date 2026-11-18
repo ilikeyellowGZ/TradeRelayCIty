@@ -136,7 +136,7 @@ ownerBrokerRoutes.post('/accounts/:id/ai-questions', async (c) => {
   try {
     const symbols = [...new Set(snapshot.positions.map((position) => position.symbol))]
     const classified = await requestBrokerIntent(config, question, symbols)
-    const answer = answerBrokerQuestion(intentQuestion(classified.intent, classified.symbol), snapshot)
+    const answer = answerBrokerQuestion(intentQuestion(classified.intent, classified.symbol), snapshot, new Date(), classified.symbol)
     c.header('cache-control', 'no-store')
     return c.json({ ...answer, classification: 'AI_INTENT', classifier: {
       provider: classified.provider, model: classified.model, requestId: classified.requestId,

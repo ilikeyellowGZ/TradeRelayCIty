@@ -30,7 +30,7 @@ function formatMoney(value: number, currency: string): string {
   }
 }
 
-export function answerBrokerQuestion(question: string, snapshot: BrokerSnapshot, now = new Date()): BrokerAnswer {
+export function answerBrokerQuestion(question: string, snapshot: BrokerSnapshot, now = new Date(), exactSymbol: string | null = null): BrokerAnswer {
   const text = question.trim()
   if (!text || text.length > 500 || /[\x00-\x1f\x7f]/.test(text)) throw new Error('QUESTION_INVALID')
   const stale = now.getTime() - Date.parse(snapshot.observedAt) > 60_000
@@ -44,8 +44,10 @@ export function answerBrokerQuestion(question: string, snapshot: BrokerSnapshot,
     supported = false
   } else if (/\b(position|positions|open trades?)\b/i.test(text)) {
     const pair = /\b([A-Z]{3})\s*\/\s*([A-Z]{3})\b/i.exec(text) ?? /\b([A-Z]{6})\b/i.exec(text)
-    const symbol = pair ? (pair[2] ? `${pair[1]}${pair[2]}` : pair[1]).toUpperCase() : null
-    const positions = symbol ? snapshot.positions.filter((position) => position.symbol.toUpperCase().startsWith(symbol)) : snapshot.positions
+    const symbol = exactSymbol ?? (pair ? (pair[2] ? `${pair[1]}${pair[2]}` : pair[1]).toUpperCase() : null)
+    const positions = exactSymbol
+      ? snapshot.positions.filter((position) => position.symbol === exactSymbol)
+      : symbol ? snapshot.positions.filter((position) => position.symbol.toUpperCase().startsWith(symbol)) : snapshot.positions
     detail = positions.length
       ? `${positions.length} open ${symbol ? `${symbol} ` : ''}position${positions.length === 1 ? '' : 's'}: ${positions.map((position) => `${position.side} ${position.volume} ${position.symbol}, floating P&L ${money(position.profit)}`).join('; ')}.`
       : `No open ${symbol ? `${symbol} ` : ''}positions were present in this snapshot.`
