@@ -6,8 +6,10 @@ import { registerHistoryRoutes } from './history/routes'
 import { answerSimulationQuestion, normalizeChatQuestion, type ChatContext } from './chat/simulation'
 import { listHistory, type HistoryDatabase } from './history/repository'
 import { connectorBrokerRoutes, ownerBrokerRoutes } from './broker/routes'
+import { brokerAiConfig, intentQuestion, requestBrokerIntent, type BrokerAiEnv } from './broker/ai-intent'
+import { requiresUnavailableBrokerData } from './broker/assistant'
 
-type Bindings = { DB: D1Database; ASSETS: { fetch(request: Request): Promise<Response> }; SIMULATION_MODE?: string; APP_BASE_URL?: string; BETTER_AUTH_SECRET?: string }
+type Bindings = { DB: D1Database; ASSETS: { fetch(request: Request): Promise<Response> }; SIMULATION_MODE?: string; APP_BASE_URL?: string; BETTER_AUTH_SECRET?: string } & BrokerAiEnv
 type Variables = { simulationUser: string }
 const app = new Hono<{ Bindings: Bindings; Variables: Variables }>()
 const fixture = createSimulationState()
@@ -71,6 +73,12 @@ app.get('/api/simulation/session', async (c) => {
   return c.json({ persona: results.find((user) => user.id === c.get('simulationUser')), users: results, mode: 'SIMULATED', isLive: false })
 })
 
+app.get('/api/simulation/ai-capabilities', (c) => {
+  const config = brokerAiConfig(c.env)
+  c.header('cache-control', 'no-store')
+  return c.json({ available: config !== null, provider: config?.provider ?? null, dailyLimit: 20 })
+})
+
 app.get('/api/simulation/chat', async (c) => {
   const accountId = c.req.query('accountId')
   if (!accountId || accountId.length > 100) return c.json({ error: 'A bounded accountId is required.' }, 400)
@@ -111,10 +119,13 @@ app.delete('/api/simulation/chat/:id', async (c) => {
 app.post('/api/simulation/chat/:id/messages', async (c) => {
   const rawBody = await c.req.text()
   if (rawBody.length > 7000) return c.json({ error: 'Message payload exceeds the 7 KB limit.' }, 413)
-  let body: { content?: unknown }
+  let body: { content?: unknown; useAi?: unknown }
   try { body = JSON.parse(rawBody) as typeof body } catch { return c.json({ error: 'Invalid JSON request.' }, 400) }
   const question = normalizeChatQuestion(body.content)
   if (!question) return c.json({ error: 'A message from 1 to 2,000 characters is required.' }, 400)
+  const ai = body.useAi === true ? brokerAiConfig(c.env) : null
+  if (body.useAi === true && !ai) return c.json({ error: 'AI is not configured. Turn off AI interpretation to use fixture answers.', code: 'AI_NOT_CONFIGURED' }, 503)
+  if (ai && question.length > 500) return c.json({ error: 'AI questions must be 500 characters or fewer.' }, 400)
   const ownerId = c.get('simulationUser')
   const conversation = await c.env.DB.prepare("SELECT id, account_id AS accountId FROM sim_chat_conversations WHERE id = ? AND owner_id = ? AND expires_at > datetime('now')").bind(c.req.param('id'), ownerId).first<{ id: string; accountId: string }>()
   if (!conversation) return c.json({ error: 'Conversation not found.' }, 404)
@@ -132,7 +143,18 @@ app.post('/api/simulation/chat/:id/messages', async (c) => {
   ])
   if (!account) return c.json({ error: 'Account not found.' }, 404)
   const context: ChatContext = { account, positions: positions.results, commands: commands.results, decision: decision ?? null, usage, history: history.items }
-  const answer = answerSimulationQuestion(question, context)
+  let interpretedQuestion = question
+  let provider = 'deterministic-fixture'
+  if (ai && !requiresUnavailableBrokerData(question)) {
+    try {
+      const classified = await requestBrokerIntent(ai, question, [...new Set(context.positions.map((position) => position.symbol))])
+      if (classified.intent !== 'UNSUPPORTED') interpretedQuestion = intentQuestion(classified.intent, classified.symbol)
+      provider = classified.provider
+    } catch {
+      return c.json({ error: 'AI provider unavailable. Retry or turn off AI interpretation to use fixture answers.', code: 'AI_PROVIDER_UNAVAILABLE' }, 502)
+    }
+  }
+  const answer = answerSimulationQuestion(interpretedQuestion, context)
   const userMessage = { id: crypto.randomUUID(), role: 'user', content: question, citations: [], createdAt: new Date().toISOString() }
   const assistantMessage = { id: crypto.randomUUID(), role: 'assistant', content: answer.content, citations: answer.citations, createdAt: new Date().toISOString(), simulated: true as const }
   await c.env.DB.batch([
@@ -140,7 +162,7 @@ app.post('/api/simulation/chat/:id/messages', async (c) => {
     c.env.DB.prepare('INSERT INTO sim_chat_messages(id, conversation_id, role, content, citations_json, created_at) VALUES(?,?,?,?,?,?)').bind(assistantMessage.id, conversation.id, assistantMessage.role, assistantMessage.content, JSON.stringify(assistantMessage.citations), assistantMessage.createdAt),
     c.env.DB.prepare("UPDATE sim_chat_conversations SET updated_at = datetime('now'), title = CASE WHEN title = 'New conversation' THEN ? ELSE title END WHERE id = ? AND owner_id = ?").bind(question.slice(0, 80), conversation.id, ownerId),
   ])
-  return c.json({ messages: [userMessage, assistantMessage], usage, mode: 'SIMULATED', provider: 'deterministic-fixture' })
+  return c.json({ messages: [userMessage, assistantMessage], usage, mode: 'SIMULATED', provider })
 })
 
 app.get('/api/simulation/accounts', async (c) => {

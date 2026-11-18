@@ -15,13 +15,18 @@
   ],
   "env": {
     "staging": {
+      "name": "traderelaycity",
       "workers_dev": true,
       "d1_databases": [
         { "binding": "DB", "database_name": "traderelaycity-staging", "database_id": "da53b2ba-c0f2-43b8-befa-0d0a0eca3d3b", "migrations_dir": "migrations" }
       ],
       "vars": {
         "SIMULATION_MODE": "false",
-        "APP_BASE_URL": "https://traderelaycity-staging.service-heyywebb.workers.dev"
+        "APP_BASE_URL": "https://traderelaycity.service-heyywebb.workers.dev",
+        "AI_PROVIDER": "groq",
+        "AI_MODEL": "openai/gpt-oss-20b",
+        "AI_FALLBACK_PROVIDER": "gemini",
+        "AI_FALLBACK_MODEL": "gemini-3.8-flash"
       }
     }
   }

@@ -15,7 +15,7 @@ function Convert-SecretToText([securestring]$Value) {
 Push-Location $projectRoot
 try {
   $ownerQuery = 'SELECT u.id, u.username, (SELECT COUNT(*) FROM "account" a WHERE a."userId"=u.id AND a."providerId"=''credential'') AS credentialCount FROM app_settings s JOIN "user" u ON u.id=s.value WHERE s.key=''owner_user_id'''
-  $ownerOutput = & npx wrangler d1 execute $database @target --command $ownerQuery --json 2>&1
+  $ownerOutput = & npx wrangler d1 execute $database --config wrangler.jsonc @target --command $ownerQuery --json 2>&1
   if ($LASTEXITCODE -ne 0) { throw "Could not read the $targetLabel owner record." }
   $ownerResponse = $ownerOutput | Out-String | ConvertFrom-Json
   $owners = @($ownerResponse[0].results)
@@ -54,7 +54,7 @@ SELECT (SELECT COUNT(*) FROM "account" WHERE "userId"='$ownerId' AND "providerId
   $sqlPath = Join-Path ([System.IO.Path]::GetTempPath()) ("trc-owner-reset-" + [guid]::NewGuid().ToString() + '.sql')
   try {
     [System.IO.File]::WriteAllText($sqlPath, $sql, [System.Text.UTF8Encoding]::new($false))
-    $resultOutput = & npx wrangler d1 execute $database @target --file $sqlPath --yes --json 2>&1
+    $resultOutput = & npx wrangler d1 execute $database --config wrangler.jsonc @target --file $sqlPath --yes --json 2>&1
     if ($LASTEXITCODE -ne 0) { throw "Could not reset the $targetLabel owner password." }
     $result = $resultOutput | Out-String | ConvertFrom-Json
     $verification = $result[-1].results[0]

@@ -16,6 +16,52 @@ describe('broker AI intent boundary', () => {
     expect(brokerAiConfig({ BROKER_AI_PROVIDER: 'openai', BROKER_AI_MODEL: 'gpt-test', OPENAI_API_KEY: 'secret' })).toMatchObject({ provider: 'openai', model: 'gpt-test' })
   })
 
+  it('recognizes the existing Groq configuration and Gemini fallback without exposing a key', () => {
+    expect(brokerAiConfig({ AI_PROVIDER: 'groq', AI_MODEL: 'openai/gpt-oss-20b', GROQ_API_KEY: 'groq-key', AI_FALLBACK_PROVIDER: 'gemini', AI_FALLBACK_MODEL: 'gemini-3.8-flash', GEMINI_API_KEY: 'gemini-key' })).toMatchObject({
+      provider: 'groq', model: 'openai/gpt-oss-20b', fallback: { provider: 'gemini', model: 'gemini-3.8-flash' },
+    })
+    expect(brokerAiConfig({ BROKER_AI_PROVIDER: 'openai', BROKER_AI_MODEL: 'gpt-test', AI_PROVIDER: 'groq', AI_MODEL: 'openai/gpt-oss-20b', GROQ_API_KEY: 'groq-key' })).toBeNull()
+  })
+
+  it('classifies with Groq chat completions and validates token usage', async () => {
+    const config = brokerAiConfig({ AI_PROVIDER: 'groq', AI_MODEL: 'openai/gpt-oss-20b', GROQ_API_KEY: 'test-secret' })!
+    let body: Record<string, unknown> | undefined
+    const fetcher = (async (url: string | URL | Request, init?: RequestInit) => {
+      expect(String(url)).toBe('https://api.groq.com/openai/v1/chat/completions')
+      expect(new Headers(init?.headers).get('authorization')).toBe('Bearer test-secret')
+      body = JSON.parse(String(init?.body))
+      return Response.json({ id: 'groq-1', choices: [{ finish_reason: 'stop', message: { role: 'assistant', content: '{"intent":"BALANCE","symbol":null}' } }], usage: { prompt_tokens: 12, completion_tokens: 9 } })
+    }) as typeof fetch
+    expect(await requestBrokerIntent(config, 'How much cash do I have?', ['EURUSD'], fetcher)).toMatchObject({ intent: 'BALANCE', provider: 'groq', model: 'openai/gpt-oss-20b', inputTokens: 12, outputTokens: 9 })
+    expect(body).toMatchObject({ max_completion_tokens: 1024, response_format: { type: 'json_schema', json_schema: { strict: true } } })
+    expect(JSON.stringify(body)).not.toContain('test-secret')
+  })
+
+  it('falls back once to Gemini on a Groq outage', async () => {
+    const config = brokerAiConfig({ AI_PROVIDER: 'groq', AI_MODEL: 'openai/gpt-oss-20b', GROQ_API_KEY: 'groq-key', AI_FALLBACK_PROVIDER: 'gemini', AI_FALLBACK_MODEL: 'gemini-3.8-flash', GEMINI_API_KEY: 'gemini-key' })!
+    const urls: string[] = []
+    const fetcher = (async (url: string | URL | Request, init?: RequestInit) => {
+      urls.push(String(url))
+      if (urls.length === 1) return Response.json({ error: 'Unavailable' }, { status: 503 })
+      expect(new Headers(init?.headers).get('x-goog-api-key')).toBe('gemini-key')
+      const body = JSON.parse(String(init?.body))
+      expect(body.generationConfig).toMatchObject({ responseFormat: { text: { mimeType: 'APPLICATION_JSON', schema: { type: 'object' } } } })
+      return Response.json({ responseId: 'gemini-1', candidates: [{ finishReason: 'STOP', content: { role: 'model', parts: [{ text: '{"intent":"EQUITY","symbol":null}' }] } }], usageMetadata: { promptTokenCount: 20, candidatesTokenCount: 8 } })
+    }) as typeof fetch
+    expect(await requestBrokerIntent(config, 'What is the account worth?', [], fetcher)).toMatchObject({ intent: 'EQUITY', provider: 'gemini', inputTokens: 20, outputTokens: 8 })
+    expect(urls).toEqual(['https://api.groq.com/openai/v1/chat/completions', 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent'])
+  })
+
+  it('does not use a fallback to bypass a provider refusal or invalid symbol', async () => {
+    const config = brokerAiConfig({ AI_PROVIDER: 'groq', AI_MODEL: 'openai/gpt-oss-20b', GROQ_API_KEY: 'groq-key', AI_FALLBACK_PROVIDER: 'gemini', AI_FALLBACK_MODEL: 'gemini-3.8-flash', GEMINI_API_KEY: 'gemini-key' })!
+    for (const message of [{ refusal: 'No' }, { content: '{"intent":"POSITIONS","symbol":"GBPUSD"}' }]) {
+      let calls = 0
+      const fetcher = (async () => { calls++; return Response.json({ choices: [{ finish_reason: 'stop', message }] }) }) as typeof fetch
+      await expect(requestBrokerIntent(config, 'Show my positions', ['EURUSD'], fetcher)).rejects.toThrow(/BROKER_AI_(REFUSAL|INVALID_RESPONSE)/)
+      expect(calls).toBe(1)
+    }
+  })
+
   it('uses OpenAI Responses with no stored response and validates the intent', async () => {
     const config: BrokerAiConfig = { provider: 'openai', model: 'gpt-test', key: 'test-secret' }
     let request: { url: string; init: RequestInit } | undefined

@@ -4,7 +4,7 @@ $ErrorActionPreference = 'Stop'
 if ($Username -cnotmatch '^[a-zA-Z0-9_.]{3,30}$') { throw 'Username must be 3 to 30 letters, digits, underscores, or dots.' }
 $Username = $Username.ToLowerInvariant()
 $target = if ($Remote) { '--remote' } else { '--local' }
-$ownerCheck = & npx wrangler d1 execute traderelaycity $target --command "SELECT value FROM app_settings WHERE key='owner_user_id'" --json 2>&1
+$ownerCheck = & npx wrangler d1 execute traderelaycity --config wrangler.jsonc $target --command "SELECT value FROM app_settings WHERE key='owner_user_id'" --json 2>&1
 if ($LASTEXITCODE -ne 0) { throw 'Could not check the owner record. Apply migrations first.' }
 $ownerRows = $ownerCheck | Out-String | ConvertFrom-Json
 if ($ownerRows[0].results.Count -gt 0) { throw 'An owner is already configured. This script will not replace the owner or password.' }
@@ -49,7 +49,7 @@ SELECT value AS owner_user_id FROM app_settings WHERE key='owner_user_id';
 $sqlPath = Join-Path ([System.IO.Path]::GetTempPath()) ("trc-owner-password-" + [guid]::NewGuid().ToString() + '.sql')
 try {
   [System.IO.File]::WriteAllText($sqlPath, $sql, [System.Text.UTF8Encoding]::new($false))
-  $result = & npx wrangler d1 execute traderelaycity $target --file $sqlPath 2>&1
+  $result = & npx wrangler d1 execute traderelaycity --config wrangler.jsonc $target --file $sqlPath 2>&1
   $resultText = $result | Out-String
   if ($LASTEXITCODE -ne 0 -or $resultText -notmatch [regex]::Escape($userId)) { throw 'Owner setup failed. Check migrations or whether an owner already exists.' }
   Write-Host "Owner username ready: $Username"

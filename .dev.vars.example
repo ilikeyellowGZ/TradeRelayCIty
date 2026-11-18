@@ -1,8 +1,8 @@
 SIMULATION_MODE=true
-# The Groq adapter is configured here but is not connected to an API route yet.
+# Both assistants use this Worker-side configuration for optional AI question interpretation.
 AI_PROVIDER=groq
 AI_MODEL=openai/gpt-oss-20b
 AI_FALLBACK_PROVIDER=gemini
 AI_FALLBACK_MODEL=gemini-3.8-flash
-# Add GROQ_API_KEY only to your private .dev.vars when real provider routing is enabled.
-# Add GEMINI_API_KEY only to your private .dev.vars when real provider routing is enabled.
+# Add GROQ_API_KEY and GEMINI_API_KEY only to your private .dev.vars.
+# Hosted keys belong in Worker secrets. Never use VITE_ variables for keys.

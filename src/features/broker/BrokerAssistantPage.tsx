@@ -1,11 +1,10 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { ArrowUpRight, ShieldCheck } from 'lucide-react'
+import { AiQuestionOption, useAiCapability } from '../../components/AiQuestionOption'
 import './broker.css'
 
 type Account = { id: string; broker: string; server: string; login: string; environment: 'DEMO' | 'LIVE'; observedAt: string | null; stale: boolean }
 type Answer = { answer: string; observedAt: string; stale: boolean; source: 'MT5_ACCOUNT_SNAPSHOT'; mode: 'BROKER_READ_ONLY'; supported: boolean; classification?: 'AI_INTENT' | 'UNAVAILABLE'; classifier?: { provider: string; model: string } }
-type AiCapability = { available: boolean; provider: string | null; dailyLimit: number }
-
 export function BrokerAssistantPage({ onOpenAccounts }: { onOpenAccounts: () => void }) {
   const [accounts, setAccounts] = useState<Account[]>([])
   const [selected, setSelected] = useState('')
@@ -14,14 +13,17 @@ export function BrokerAssistantPage({ onOpenAccounts }: { onOpenAccounts: () => 
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
-  const [aiCapability, setAiCapability] = useState<AiCapability | null>(null)
+  const aiCapability = useAiCapability('broker')
   const [useAi, setUseAi] = useState(false)
 
   useEffect(() => {
     const controller = new AbortController()
     void fetch('/api/broker/accounts', { cache: 'no-store', signal: controller.signal })
       .then(async (response) => {
-        if (!response.ok) throw new Error('Could not load MT5 snapshots.')
+        if (!response.ok) {
+          const failure = await response.json() as { error?: string }
+          throw new Error(failure.error ?? 'Could not load MT5 snapshots.')
+        }
         const data = await response.json() as { accounts?: Account[]; error?: string }
         if (!data.accounts) throw new Error(data.error ?? 'Could not load MT5 snapshots.')
         setAccounts(data.accounts)
@@ -29,10 +31,6 @@ export function BrokerAssistantPage({ onOpenAccounts }: { onOpenAccounts: () => 
       })
       .catch((cause: unknown) => { if (!controller.signal.aborted) setError(cause instanceof Error ? cause.message : 'Could not load MT5 snapshots.') })
       .finally(() => { if (!controller.signal.aborted) setLoading(false) })
-    void fetch('/api/broker/ai-capabilities', { cache: 'no-store', signal: controller.signal })
-      .then(async (response) => response.ok ? response.json() as Promise<AiCapability> : null)
-      .then((capability) => { if (!controller.signal.aborted) setAiCapability(capability) })
-      .catch(() => { if (!controller.signal.aborted) setAiCapability(null) })
     return () => controller.abort()
   }, [])
 
@@ -48,8 +46,8 @@ export function BrokerAssistantPage({ onOpenAccounts }: { onOpenAccounts: () => 
       const response = await fetch(`/api/broker/accounts/${encodeURIComponent(selected)}/${endpoint}`, {
         method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ question: clean }),
       })
-      if (!response.ok) throw new Error('Could not answer from this snapshot.')
       const data = await response.json() as Answer & { error?: string }
+      if (!response.ok) throw new Error(data.error ?? 'Could not answer from this snapshot.')
       setAnswer(data)
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Could not answer from this snapshot.')
@@ -74,7 +72,7 @@ export function BrokerAssistantPage({ onOpenAccounts }: { onOpenAccounts: () => 
         <form onSubmit={(event) => void ask(event)}>
           <label htmlFor="broker-assistant-question">Your question</label>
           <textarea id="broker-assistant-question" maxLength={500} rows={3} value={question} onChange={(event) => setQuestion(event.target.value)} placeholder="What is my current account balance?" />
-          <label className="broker-ai-option"><input type="checkbox" checked={useAi} disabled={!aiCapability?.available} onChange={(event) => setUseAi(event.target.checked)} /><span>Use AI to interpret my question<small>{aiCapability?.available ? `Sends the text you type and open symbol names to ${aiCapability.provider}; stored account values stay on TradeRelayCity. Limit ${aiCapability.dailyLimit} questions per UTC day.` : 'Unavailable until a server-side provider is configured.'}</small></span></label>
+          <AiQuestionOption capability={aiCapability} checked={useAi} busy={busy} onChange={setUseAi} />
           <button className="pill-button pill-button--primary" type="submit" disabled={busy || !question.trim()}>{busy ? 'Checking snapshot…' : 'Ask about snapshot'}</button>
         </form>
         <p className="broker-assistant-examples">Try: “What is my balance?” · “Show my EUR/USD positions” · “What is my floating P&amp;L?”</p>

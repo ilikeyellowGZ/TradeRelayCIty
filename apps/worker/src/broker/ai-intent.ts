@@ -1,4 +1,4 @@
-export type BrokerAiProvider = 'openai' | 'anthropic' | 'xai'
+export type BrokerAiProvider = 'openai' | 'anthropic' | 'xai' | 'groq' | 'gemini'
 export type BrokerIntent = 'BALANCE' | 'EQUITY' | 'MARGIN_USED' | 'MARGIN_FREE' | 'FLOATING_PROFIT' | 'POSITIONS' | 'ACCOUNT' | 'UNSUPPORTED'
 export type BrokerAiEnv = {
   BROKER_AI_PROVIDER?: string
@@ -6,8 +6,14 @@ export type BrokerAiEnv = {
   OPENAI_API_KEY?: string
   ANTHROPIC_API_KEY?: string
   XAI_API_KEY?: string
+  GROQ_API_KEY?: string
+  GEMINI_API_KEY?: string
+  AI_PROVIDER?: string
+  AI_MODEL?: string
+  AI_FALLBACK_PROVIDER?: string
+  AI_FALLBACK_MODEL?: string
 }
-export type BrokerAiConfig = { provider: BrokerAiProvider; model: string; key: string }
+export type BrokerAiConfig = { provider: BrokerAiProvider; model: string; key: string; fallback?: BrokerAiConfig }
 export type BrokerIntentResult = { intent: BrokerIntent; symbol: string | null; provider: BrokerAiProvider; model: string; requestId: string | null; inputTokens: number | null; outputTokens: number | null }
 
 const intents: BrokerIntent[] = ['BALANCE', 'EQUITY', 'MARGIN_USED', 'MARGIN_FREE', 'FLOATING_PROFIT', 'POSITIONS', 'ACCOUNT', 'UNSUPPORTED']
@@ -30,11 +36,20 @@ function tokenCount(value: unknown): number | null {
 }
 
 export function brokerAiConfig(env: BrokerAiEnv): BrokerAiConfig | null {
-  const provider = env.BROKER_AI_PROVIDER
-  const key = provider === 'openai' ? env.OPENAI_API_KEY : provider === 'anthropic' ? env.ANTHROPIC_API_KEY : provider === 'xai' ? env.XAI_API_KEY : null
-  const model = env.BROKER_AI_MODEL
-  if (!key || !model || !/^[A-Za-z0-9._-]{1,80}$/.test(model) || !['openai', 'anthropic', 'xai'].includes(String(provider))) return null
-  return { provider: provider as BrokerAiProvider, model, key }
+  const explicit = env.BROKER_AI_PROVIDER !== undefined
+  const provider = explicit ? env.BROKER_AI_PROVIDER : env.AI_PROVIDER
+  const keys = { openai: env.OPENAI_API_KEY, anthropic: env.ANTHROPIC_API_KEY, xai: env.XAI_API_KEY, groq: env.GROQ_API_KEY, gemini: env.GEMINI_API_KEY }
+  if (!provider || !Object.hasOwn(keys, provider)) return null
+  const key = keys[provider as BrokerAiProvider]?.trim()
+  const model = (explicit ? env.BROKER_AI_MODEL : env.AI_MODEL)?.trim()
+  const validModel = provider === 'groq' ? /^[A-Za-z0-9_-]+\/[A-Za-z0-9._-]+$/ : /^[A-Za-z0-9._-]+$/
+  if (!key || !model || model.length > 80 || !validModel.test(model)) return null
+  const config: BrokerAiConfig = { provider: provider as BrokerAiProvider, model, key }
+  if (!explicit && env.AI_FALLBACK_PROVIDER && env.AI_FALLBACK_PROVIDER !== provider) {
+    const fallback = brokerAiConfig({ ...env, BROKER_AI_PROVIDER: env.AI_FALLBACK_PROVIDER, BROKER_AI_MODEL: env.AI_FALLBACK_MODEL })
+    if (fallback) config.fallback = fallback
+  }
+  return config
 }
 
 async function boundedJson(response: Response): Promise<Record<string, unknown>> {
@@ -93,35 +108,71 @@ function validateIntent(raw: unknown, symbols: string[]): { intent: BrokerIntent
   return { intent: item.intent as BrokerIntent, symbol }
 }
 
-export async function requestBrokerIntent(config: BrokerAiConfig, question: string, symbols: string[], fetcher: typeof fetch = fetch): Promise<BrokerIntentResult> {
+async function requestIntentOnce(config: BrokerAiConfig, question: string, symbols: string[], fetcher: typeof fetch): Promise<BrokerIntentResult> {
   if (!question.trim() || question.length > 500 || symbols.length > 100 || symbols.some((symbol) => !/^[A-Za-z0-9._-]{1,32}$/.test(symbol))) throw new Error('BROKER_AI_INPUT_INVALID')
   const input = JSON.stringify({ question, availableSymbols: symbols })
-  const openaiLike = config.provider !== 'anthropic'
-  const url = config.provider === 'openai' ? 'https://api.openai.com/v1/responses' : config.provider === 'xai' ? 'https://api.x.ai/v1/responses' : 'https://api.anthropic.com/v1/messages'
+  const openaiLike = config.provider === 'openai' || config.provider === 'xai'
+  const url = config.provider === 'groq' ? 'https://api.groq.com/openai/v1/chat/completions'
+    : config.provider === 'gemini' ? `https://generativelanguage.googleapis.com/v1beta/models/${config.model}:generateContent`
+    : config.provider === 'openai' ? 'https://api.openai.com/v1/responses' : config.provider === 'xai' ? 'https://api.x.ai/v1/responses' : 'https://api.anthropic.com/v1/messages'
   const headers: Record<string, string> = { 'content-type': 'application/json' }
   if (config.provider === 'anthropic') {
     headers.authorization = `Bearer ${config.key}`
     headers['anthropic-version'] = '2026-10-21'
-  } else headers.authorization = `Bearer ${config.key}`
+  } else if (config.provider === 'gemini') headers['x-goog-api-key'] = config.key
+  else headers.authorization = `Bearer ${config.key}`
   const body = openaiLike ? {
     model: config.model, instructions, input, max_output_tokens: 256, store: false,
     text: { format: { type: 'json_schema', name: 'trc_broker_intent', strict: true, schema } },
+  } : config.provider === 'groq' ? {
+    model: config.model, max_completion_tokens: 1024, reasoning_effort: 'low',
+    messages: [{ role: 'system', content: instructions }, { role: 'user', content: input }],
+    response_format: { type: 'json_schema', json_schema: { name: 'trc_broker_intent', strict: config.model.startsWith('openai/gpt-oss-'), schema } },
+  } : config.provider === 'gemini' ? {
+    systemInstruction: { parts: [{ text: instructions }] }, contents: [{ role: 'user', parts: [{ text: input }] }],
+    generationConfig: { maxOutputTokens: 1024, thinkingConfig: { thinkingLevel: 'LOW' }, responseFormat: { text: { mimeType: 'APPLICATION_JSON', schema } } },
   } : {
     model: config.model, system: instructions, messages: [{ role: 'user', content: input }], max_tokens: 256,
     output_config: { format: { type: 'json_schema', schema } },
   }
-  const response = await fetcher(url, { method: 'POST', headers, body: JSON.stringify(body), signal: AbortSignal.timeout(12_000) })
+  const response = await fetcher(url, { method: 'POST', headers, body: JSON.stringify(body), signal: AbortSignal.timeout(config.provider === 'gemini' ? 30_000 : 12_000) })
   const data = await boundedJson(response)
-  const content = openaiLike ? parseResponseText(data) : parseAnthropicText(data)
+  let content: string
+  if (config.provider === 'groq') {
+    const choice = record(Array.isArray(data.choices) ? data.choices[0] : null)
+    const message = record(choice?.message)
+    if (message?.refusal) throw new Error('BROKER_AI_REFUSAL')
+    if (choice?.finish_reason !== 'stop') throw new Error('BROKER_AI_INCOMPLETE')
+    if (typeof message?.content !== 'string') throw new Error('BROKER_AI_INVALID_RESPONSE')
+    content = message.content
+  } else if (config.provider === 'gemini') {
+    const candidate = record(Array.isArray(data.candidates) ? data.candidates[0] : null)
+    if (record(data.promptFeedback)?.blockReason || ['SAFETY', 'RECITATION', 'BLOCKLIST', 'PROHIBITED_CONTENT', 'SPII'].includes(String(candidate?.finishReason))) throw new Error('BROKER_AI_REFUSAL')
+    if (candidate?.finishReason !== 'STOP') throw new Error('BROKER_AI_INCOMPLETE')
+    const parts = record(candidate.content)?.parts
+    content = Array.isArray(parts) ? parts.map(record).filter((part) => !part?.thought && typeof part?.text === 'string').map((part) => part!.text).join('') : ''
+    if (!content) throw new Error('BROKER_AI_INVALID_RESPONSE')
+  } else content = openaiLike ? parseResponseText(data) : parseAnthropicText(data)
   let parsed: unknown
   try { parsed = JSON.parse(content) } catch { throw new Error('BROKER_AI_INVALID_RESPONSE') }
   const intent = validateIntent(parsed, symbols)
-  const usage = record(data.usage)
+  const usage = record(config.provider === 'gemini' ? data.usageMetadata : data.usage)
+  const requestId = config.provider === 'gemini' ? data.responseId : data.id
   return {
     ...intent, provider: config.provider, model: config.model,
-    requestId: typeof data.id === 'string' && data.id.length <= 120 ? data.id : null,
-    inputTokens: tokenCount(usage?.input_tokens),
-    outputTokens: tokenCount(usage?.output_tokens),
+    requestId: typeof requestId === 'string' && requestId.length <= 120 ? requestId : null,
+    inputTokens: tokenCount(config.provider === 'groq' ? usage?.prompt_tokens : config.provider === 'gemini' ? usage?.promptTokenCount : usage?.input_tokens),
+    outputTokens: tokenCount(config.provider === 'groq' ? usage?.completion_tokens : config.provider === 'gemini' ? usage?.candidatesTokenCount : usage?.output_tokens),
+  }
+}
+
+export async function requestBrokerIntent(config: BrokerAiConfig, question: string, symbols: string[], fetcher: typeof fetch = fetch): Promise<BrokerIntentResult> {
+  try {
+    return await requestIntentOnce(config, question, symbols, fetcher)
+  } catch (error) {
+    const retryable = error instanceof TypeError || (error instanceof Error && (/^BROKER_AI_HTTP_(429|5\d\d)$/.test(error.message) || ['AbortError', 'TimeoutError'].includes(error.name)))
+    if (!config.fallback || !retryable) throw error
+    return requestIntentOnce(config.fallback, question, symbols, fetcher)
   }
 }
 

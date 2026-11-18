@@ -169,9 +169,10 @@ function App() {
   const [aiMessage, setAiMessage] = useState('Mock AI is idle; live AI is not configured.')
   const [aiBusy, setAiBusy] = useState(false)
   const [assistantSource, setAssistantSource] = useState<'simulation' | 'broker'>('simulation')
+  const [simulationAvailable, setSimulationAvailable] = useState<boolean | null>(null)
   const dashboardRef = useRef<HTMLDivElement>(null)
-  const brokerPage = active === 'Accounts' || active === 'Positions'
-  const brokerView = brokerPage || (active === 'Assistant' && assistantSource === 'broker')
+  const brokerPage = active === 'Accounts' || active === 'Positions' || (active === 'Overview' && simulationAvailable === false)
+  const brokerView = simulationAvailable === false || brokerPage || (active === 'Assistant' && assistantSource === 'broker')
   const connectorStatus = connectorError
     ? { tone: 'muted' as const, label: 'MT5 status unavailable', detail: 'Could not check the connector. Open Accounts to retry.' }
     : connectorDevices === null
@@ -230,6 +231,13 @@ function App() {
     let cancelled = false
     async function loadSimulation() {
       try {
+        const healthResponse = await fetch('/api/health', { cache: 'no-store' })
+        if (!healthResponse.ok) throw new Error('Could not check workspace availability.')
+        const health = await healthResponse.json() as { mode: string }
+        if (cancelled) return
+        const simulation = health.mode === 'SIMULATED'
+        setSimulationAvailable(simulation)
+        if (!simulation) { setAssistantSource('broker'); setApiError(''); return }
         const [sessionResponse, accountsResponse] = await Promise.all([
           fetch('/api/simulation/session', { headers }),
           fetch('/api/simulation/accounts', { headers }),
@@ -305,9 +313,7 @@ function App() {
           {brokerView && <div className="topbar-broker-context"><strong>Broker connection</strong><small>MT5 read-only snapshots</small></div>}
           <div ref={accountRef} className={`topbar-account${brokerView ? ' topbar-account--hidden' : ''}`}>
             <button ref={accountButtonRef} className="account-switcher" type="button" aria-expanded={accountOpen} onClick={() => setAccountOpen((value) => !value)}>
-              <span className="account-avatar"><Command size={16} /></span>
-              <span className="account-labels"><strong>{account?.label ?? 'Loading simulation…'}</strong><small>{account?.broker ?? 'Local simulation'}</small></span>
-              <ChevronDown size={16} className={accountOpen ? 'chevron-open' : ''} />
+              <span className="account-labels"><strong>{account?.label ?? 'Loading simulation…'}</strong><small>Change account</small></span>
             </button>
             <AnimatePresence>
               {accountOpen && <m.div className="account-menu" initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 5 }}>
@@ -329,7 +335,7 @@ function App() {
 
         <AnimatePresence mode="wait" initial={false}>
         <m.div key={`${active}:${active === 'Assistant' ? assistantSource : ''}`} className="content-wrap" initial={reduceMotion ? false : { opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={reduceMotion ? undefined : { opacity: 0, y: -4 }} transition={{ duration: reduceMotion ? 0 : 0.18, ease: 'easeOut' }}>
-          {active === 'Overview' ? <>
+          {simulationAvailable === null ? <p role={apiError ? 'alert' : 'status'}>{apiError || 'Checking workspace…'}</p> : active === 'Overview' && simulationAvailable ? <>
             <section className="overview-composition" aria-label="Account overview">
               <div className="overview-hero">
                 <div className="overline"><span className="overline-line" />YOUR MARKET DESK <span className="eyebrow-dot" />{apiError ? 'DATA UNAVAILABLE' : 'SIMULATION ACTIVE'}</div>
@@ -399,10 +405,10 @@ function App() {
             <BrokerPage focus={active === 'Positions' ? 'positions' : 'accounts'} />
             <footer className="page-footer"><span><span className="footer-mark"><BotifyMark compact /></span>TRADERELAYCITY</span><span>MT5 READ ONLY <i /> ORDER EXECUTION DISABLED</span><span>Built for clarity.</span></footer>
           </> : active === 'Trade History' ? <>
-            <TradeHistoryPage key={`${userId}:${account?.id ?? 'unavailable'}`} accountId={account?.id ?? ''} accountLabel={account?.label ?? 'Selected account'} currency={account?.balance.currency ?? 'USD'} userId={userId} />
-            <footer className="page-footer"><span><span className="footer-mark"><BotifyMark compact /></span>TRADERELAYCITY</span><span>SIMULATION <i /> LIVE MODE DISABLED</span><span>Built for clarity.</span></footer>
+            {simulationAvailable ? <TradeHistoryPage key={`${userId}:${account?.id ?? 'unavailable'}`} accountId={account?.id ?? ''} accountLabel={account?.label ?? 'Selected account'} currency={account?.balance.currency ?? 'USD'} userId={userId} /> : <SectionPreview active={active} />}
+            <footer className="page-footer"><span><span className="footer-mark"><BotifyMark compact /></span>TRADERELAYCITY</span><span>{simulationAvailable ? 'SIMULATION' : 'MT5 READ ONLY'} <i /> LIVE MODE DISABLED</span><span>Built for clarity.</span></footer>
           </> : active === 'Assistant' ? <>
-            <div className="assistant-source-switch" role="group" aria-label="Assistant data source"><button type="button" aria-pressed={assistantSource === 'simulation'} onClick={() => setAssistantSource('simulation')}>Simulation records</button><button type="button" aria-pressed={assistantSource === 'broker'} onClick={() => setAssistantSource('broker')}>MT5 snapshots</button></div>
+            {simulationAvailable && <div className="assistant-source-switch" role="group" aria-label="Assistant data source"><button type="button" aria-pressed={assistantSource === 'simulation'} onClick={() => setAssistantSource('simulation')}>Simulation records</button><button type="button" aria-pressed={assistantSource === 'broker'} onClick={() => setAssistantSource('broker')}>MT5 snapshots</button></div>}
             {assistantSource === 'broker' ? <BrokerAssistantPage onOpenAccounts={() => setActive('Accounts')} /> : <AssistantPage key={`${userId}:${account?.id ?? 'unavailable'}`} account={account} userId={userId} />}
             <footer className="page-footer"><span><span className="footer-mark"><BotifyMark compact /></span>TRADERELAYCITY</span><span>{assistantSource === 'broker' ? 'MT5 READ ONLY' : 'SIMULATION'} <i /> ORDER EXECUTION DISABLED</span><span>Built for clarity.</span></footer>
           </> : <>

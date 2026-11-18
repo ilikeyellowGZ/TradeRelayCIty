@@ -1,8 +1,10 @@
 # Cloudflare deployment
 
-The staging Worker is deployed at `https://traderelaycity-staging.service-heyywebb.workers.dev` with its own D1 database and owner account. Production deployment still requires a production D1 ID, origin, and owner setup.
+The existing hosted workspace is `https://traderelaycity.service-heyywebb.workers.dev`. The `staging` configuration explicitly targets Worker `traderelaycity` and the existing `traderelaycity-staging` D1 database. `APP_BASE_URL` must match that reachable origin for password login to work. The former `traderelaycity-staging` hostname has no Worker. A separate production database and owner setup remain unconfigured.
 
 ## Deploy staging
+
+Use `npm run db:migrate:staging` for the hosted database or `npm run db:migrate:local` for the local database. These commands explicitly select the source configuration, so a previous Vite build cannot redirect them to another database. Supply `GROQ_API_KEY` and `GEMINI_API_KEY` using private stdin to `wrangler secret bulk --config wrangler.jsonc --env staging`. Preserve the existing `BETTER_AUTH_SECRET` and owner password.
 
 Set `CLOUDFLARE_ENV=staging` for the build, then inspect `dist/traderelaycity/wrangler.json` to confirm `targetEnvironment` is `staging` and the D1 binding is `traderelaycity-staging`. Run `npx wrangler deploy` without `--env` against this generated Vite configuration. Adding `--env staging` to the deploy command selects the top-level D1 placeholder and fails with Cloudflare error 10021. Keep the production placeholder untouched.
 

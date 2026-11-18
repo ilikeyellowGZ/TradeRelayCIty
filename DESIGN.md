@@ -46,6 +46,7 @@ Below 1024px the floating navigation becomes a fixed, scrollable drawer with 16p
 - Centered pill with Overview, Trading, History, Assistant; a labeled More menu preserves every secondary route.
 - On mobile, a hamburger opens one vertical drawer containing every route. The drawer closes on selection, Escape, close button, or scrim press; focus returns to the hamburger and background scrolling stops while open. Closed drawer controls are removed from keyboard focus.
 - On desktop the account selector, SIMULATED/DEMO/LIVE mode, connector health, last-update context, and theme toggle remain visible together. On mobile, the simulation banner carries mode context while the MT5 status has its own header row.
+- The account selector shows the current account name and a text action, “Change account,” without icons. It remains a 44px minimum button with a visible expanded state.
 - Current, hover, focus-visible, menu-open and theme states are distinct. Mode, connector health and strategy state never share one indicator.
 - Buttons expose `aria-current`; menu and theme controls are keyboard operable and clearly named.
 - The context row includes a labeled sign-out control; sign-out failures stay visible and do not imply the session ended.
@@ -62,7 +63,11 @@ Below 1024px the floating navigation becomes a fixed, scrollable drawer with 16p
 
 ### Forms, tables, assistant and dialogs
 - Use shared themed surfaces, visible validation, 56px table rows, aligned columns, 14px content, compact pill filters and readable assistant message widths.
+- On phones, the assistant workspace uses 16px outer corners in place of the desktop card radius.
+- The assistant workspace grows with its conversations and messages so the page scrolls through the full content. The mobile conversation list has no separate scroll area.
 - Preserve existing confirmation and approval flows for consequential controls.
+- The workspace reads its server mode before loading simulation records. Hosted read-only workspaces open the MT5 assistant source; simulation controls are available only in local simulation mode. The hosted overview uses the account snapshot view.
+- Both assistant sources expose an optional, labeled AI interpretation checkbox with provider disclosure. Only typed questions and symbol names go to the provider; answers use stored records. Pending, unavailable-provider, quota, and database errors remain visible with their server-provided explanation. Simulation replies remain labeled as fixtures.
 - The Broker page separates paired devices from MT5 account snapshots. It shows a one-time pairing code in a clearly labeled copyable field, its expiry, revocation controls, and an account card with broker/server/login, DEMO or LIVE type, balance, equity, open positions, and observation time. Stale and disconnected states suppress any impression of current data; no trade control appears on this read-only page.
 
 ### Buttons, tabs and states

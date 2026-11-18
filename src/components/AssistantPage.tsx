@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
-import { Bot, MessageCircle, Plus, Send, Trash2, X } from 'lucide-react'
+import { Bot, FlaskConical, MessageCircle, Plus, Send, Trash2, X } from 'lucide-react'
+import { AiQuestionOption, useAiCapability } from './AiQuestionOption'
 
 type Account = { id: string; label: string; connected: boolean; environment: string; mode: string }
 type Message = { id: string; role: 'user' | 'assistant'; content: string; citations: string[]; simulated?: boolean }
@@ -13,6 +14,8 @@ export function AssistantPage({ account, userId }: { account: Account | null; us
   const [draft, setDraft] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const aiCapability = useAiCapability('simulation')
+  const [useAi, setUseAi] = useState(false)
   const abortRef = useRef<AbortController | null>(null)
   const headers = { 'content-type': 'application/json', 'x-simulation-user': userId }
 
@@ -75,7 +78,7 @@ export function AssistantPage({ account, userId }: { account: Account | null; us
     const controller = new AbortController()
     abortRef.current = controller
     try {
-      const response = await fetch(`/api/simulation/chat/${encodeURIComponent(target.id)}/messages`, { method: 'POST', headers, body: JSON.stringify({ content: clean }), signal: controller.signal })
+      const response = await fetch(`/api/simulation/chat/${encodeURIComponent(target.id)}/messages`, { method: 'POST', headers, body: JSON.stringify({ content: clean, useAi: useAi && aiCapability?.available }), signal: controller.signal })
       const data = await response.json() as { messages?: Message[]; error?: string }
       if (!response.ok || !data.messages) throw new Error(data.error ?? 'The simulated assistant is unavailable.')
       setConversation((current) => current?.id === target.id ? { ...current, title: current.title === 'New conversation' ? clean.slice(0, 80) : current.title, messages: [...(current.messages ?? []), ...data.messages!] } : current)
@@ -95,9 +98,10 @@ export function AssistantPage({ account, userId }: { account: Account | null; us
     <section className="assistant-page" aria-labelledby="assistant-title">
       <div className="page-intro">
         <div><div className="overline"><span className="overline-line" />ACCOUNT-AWARE ASSISTANT</div><h1 id="assistant-title">Assistant<span className="title-period">.</span></h1><p className="page-subtitle">Ask about saved records for the selected account.</p></div>
-        <div className="assistant-account-status"><strong>{account?.label ?? 'Account unavailable'}</strong><span className="mode-badge"><span />{account?.mode ?? 'SIMULATED'} · {account?.environment ?? 'DEMO'}</span></div>
+        <span className="assistant-demo-indicator" role="img" aria-label="Demo account" title="Demo account"><FlaskConical size={16} aria-hidden="true" /></span>
       </div>
-      <div className="assistant-preview-banner" role="note"><Bot size={17} /><p><strong>Simulated assistant.</strong> Answers use local fixture records. Completed trade history and learning records are not connected. No provider is called and no account actions are available.</p></div>
+      <div className="assistant-preview-banner" role="note"><Bot size={17} /><p><strong>Simulated assistant.</strong> Answers use local fixture records. AI can interpret account questions when selected below. Completed trade history and learning records are not connected. No account actions are available.</p></div>
+      <AiQuestionOption capability={aiCapability} checked={useAi} busy={busy} onChange={setUseAi} />
       <div className="assistant-workspace">
         <aside className="assistant-conversations" aria-label="Conversation history">
           <div className="assistant-sidebar-heading"><h2>Conversations</h2><button type="button" className="assistant-new-button" onClick={() => { setConversation(null); setError('') }} aria-label="Start a new conversation"><Plus size={16} />New</button></div>
@@ -120,7 +124,7 @@ export function AssistantPage({ account, userId }: { account: Account | null; us
           </div>
           <form className="assistant-composer" onSubmit={onSubmit}>
             <label className="sr-only" htmlFor="assistant-message">Ask about this account</label>
-            <textarea id="assistant-message" rows={2} maxLength={2000} value={draft} onChange={(event) => setDraft(event.target.value)} placeholder="Ask about this account’s saved records…" disabled={!account || busy} onKeyDown={(event) => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); event.currentTarget.form?.requestSubmit() } }} />
+            <textarea id="assistant-message" rows={2} maxLength={useAi ? 500 : 2000} value={draft} onChange={(event) => setDraft(event.target.value)} placeholder="Ask about this account’s saved records…" disabled={!account || busy} onKeyDown={(event) => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); event.currentTarget.form?.requestSubmit() } }} />
             {busy ? <button type="button" className="assistant-send-button assistant-cancel-button" onClick={() => abortRef.current?.abort()} aria-label="Cancel response"><X size={17} /><span>Cancel</span></button> : <button type="submit" className="assistant-send-button" disabled={!draft.trim() || !account} aria-label="Send message"><Send size={17} /><span>Send</span></button>}
             <small>Enter to send · Shift+Enter for a new line</small>
           </form>
