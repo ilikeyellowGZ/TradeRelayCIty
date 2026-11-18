@@ -30,6 +30,8 @@
 .broker-device-list span, .broker-device-list small { color: var(--text-muted); font-size: 12px; overflow-wrap: anywhere; }
 .broker-device-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .broker-device-actions button:first-child { border-color: var(--negative); color: var(--negative); }
+.broker-device-events { flex: 1 0 100%; display: grid; gap: 6px; padding: 12px 16px; border: 1px solid var(--border); border-radius: 16px; background: var(--surface-raised); }
+.broker-device-events p { margin: 0; color: var(--text-muted); font-size: 12px; line-height: 1.5; }
 .broker-account-heading { align-items: flex-end; margin-top: 8px; }
 .broker-account-heading > span { color: var(--text-muted); font: 500 13px "JetBrains Mono", monospace; }
 .broker-empty { display: grid; justify-items: start; gap: 8px; color: var(--text-muted); }

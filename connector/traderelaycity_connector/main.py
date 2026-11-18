@@ -186,6 +186,15 @@ class ConnectorApp(tk.Tk):
         self.save()
         if self.sync_enabled:
             self.sync_snapshot()
+        else:
+            def report_pause() -> None:
+                try:
+                    token = read_secret(DEVICE_CREDENTIAL)
+                    if token:
+                        CloudClient(self.config_data["website_url"]).report_status(token, "PAUSED")
+                except Exception:
+                    pass
+            threading.Thread(target=report_pause, daemon=True).start()
 
     def _scheduled_sync(self) -> None:
         if self.sync_enabled and not self.sync_busy:

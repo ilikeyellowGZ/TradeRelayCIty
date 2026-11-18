@@ -40,7 +40,7 @@ ownerBrokerRoutes.post('/pairing-codes', async (c) => {
 })
 
 ownerBrokerRoutes.get('/devices', async (c) => {
-  const { results } = await c.env.DB.prepare('SELECT d.id,d.name,d.created_at AS createdAt,d.last_seen_at AS lastSeenAt,d.revoked_at AS revokedAt,a.broker,a.server,a.login,a.environment FROM connector_devices d LEFT JOIN broker_accounts a ON a.device_id=d.id WHERE d.owner_id=? ORDER BY d.created_at DESC LIMIT 50').bind(c.get('ownerId')).all()
+  const { results } = await c.env.DB.prepare('SELECT d.id,d.name,d.created_at AS createdAt,d.last_seen_at AS lastSeenAt,d.revoked_at AS revokedAt,d.last_state AS lastState,d.last_status_at AS statusAt,a.broker,a.server,a.login,a.environment FROM connector_devices d LEFT JOIN broker_accounts a ON a.device_id=d.id WHERE d.owner_id=? ORDER BY d.created_at DESC LIMIT 50').bind(c.get('ownerId')).all()
   c.header('cache-control', 'no-store')
   return c.json({ devices: results })
 })
@@ -49,6 +49,14 @@ ownerBrokerRoutes.delete('/devices/:id', async (c) => {
   const device = await c.env.DB.prepare('UPDATE connector_devices SET revoked_at=? WHERE id=? AND owner_id=? AND revoked_at IS NULL RETURNING id').bind(Date.now(), c.req.param('id'), c.get('ownerId')).first()
   if (!device) return c.json({ error: 'Active device not found.' }, 404)
   return c.json({ revoked: true, deviceId: device.id })
+})
+
+ownerBrokerRoutes.get('/devices/:id/events', async (c) => {
+  const device = await c.env.DB.prepare('SELECT id FROM connector_devices WHERE id=? AND owner_id=?').bind(c.req.param('id'), c.get('ownerId')).first()
+  if (!device) return c.json({ error: 'Device not found.' }, 404)
+  const { results } = await c.env.DB.prepare('SELECT state,recorded_at AS recordedAt FROM connector_status_events WHERE device_id=? AND owner_id=? ORDER BY id DESC LIMIT 25').bind(c.req.param('id'), c.get('ownerId')).all()
+  c.header('cache-control', 'no-store')
+  return c.json({ events: results })
 })
 
 ownerBrokerRoutes.get('/accounts', async (c) => {
@@ -107,6 +115,7 @@ connectorBrokerRoutes.post('/pair', async (c) => {
   const tokenDigest = await digestSecret(token)
   const deviceId = crypto.randomUUID()
   await c.env.DB.prepare('INSERT INTO connector_devices(id,owner_id,name,token_digest,created_at) VALUES(?,?,?,?,?)').bind(deviceId, pairing.ownerId, body.name, tokenDigest, now).run()
+  await c.env.DB.prepare('INSERT INTO connector_status_events(device_id,owner_id,state,recorded_at) VALUES(?,?,?,?)').bind(deviceId, pairing.ownerId, 'PAIRED', now).run()
   c.header('cache-control', 'no-store')
   return c.json({ deviceId, token, scope: 'connector:read-only' }, 201)
 })
@@ -120,6 +129,35 @@ connectorBrokerRoutes.use('/snapshot', async (c, next) => {
   c.set('deviceId', device.id)
   c.set('deviceOwnerId', device.ownerId)
   await next()
+})
+
+connectorBrokerRoutes.use('/status', async (c, next) => {
+  const token = /^Bearer ([A-Za-z0-9_-]{43})$/.exec(c.req.header('authorization') ?? '')?.[1]
+  if (!token) return c.json({ error: 'Device credential required.' }, 401)
+  const digest = await digestSecret(token)
+  const device = await c.env.DB.prepare('SELECT id,owner_id AS ownerId FROM connector_devices WHERE token_digest=? AND revoked_at IS NULL').bind(digest).first<{ id: string; ownerId: string }>()
+  if (!device) return c.json({ error: 'Device credential invalid or revoked.' }, 401)
+  c.set('deviceId', device.id)
+  c.set('deviceOwnerId', device.ownerId)
+  await next()
+})
+
+connectorBrokerRoutes.post('/status', async (c) => {
+  const raw = await c.req.text()
+  if (raw.length > 128) return c.json({ error: 'Status request too large.' }, 413)
+  let body: { state?: unknown }
+  try { body = JSON.parse(raw) as typeof body } catch { return c.json({ error: 'Invalid JSON.' }, 400) }
+  if (!['MCP_OFFLINE', 'MCP_ERROR', 'PAUSED'].includes(String(body.state))) return c.json({ error: 'Invalid connector state.' }, 400)
+  const state = body.state as 'MCP_OFFLINE' | 'MCP_ERROR' | 'PAUSED'
+  const now = Date.now()
+  const changed = await c.env.DB.prepare('UPDATE connector_devices SET last_state=?,last_status_at=?,last_seen_at=? WHERE id=? AND owner_id=? AND revoked_at IS NULL AND last_state<>? RETURNING id').bind(state, now, now, c.get('deviceId'), c.get('deviceOwnerId'), state).first()
+  if (changed) await c.env.DB.prepare('INSERT INTO connector_status_events(device_id,owner_id,state,recorded_at) VALUES(?,?,?,?)').bind(c.get('deviceId'), c.get('deviceOwnerId'), state, now).run()
+  else {
+    const active = await c.env.DB.prepare('UPDATE connector_devices SET last_status_at=?,last_seen_at=? WHERE id=? AND owner_id=? AND revoked_at IS NULL RETURNING id').bind(now, now, c.get('deviceId'), c.get('deviceOwnerId')).first()
+    if (!active) return c.json({ error: 'Device credential invalid or revoked.' }, 401)
+  }
+  c.header('cache-control', 'no-store')
+  return c.json({ state, recordedAt: now })
 })
 
 connectorBrokerRoutes.post('/snapshot', async (c) => {
@@ -143,6 +181,8 @@ connectorBrokerRoutes.post('/snapshot', async (c) => {
   const written = await c.env.DB.prepare('INSERT INTO broker_snapshots(account_id,balance,equity,margin_used,margin_free,floating_profit,positions_json,observed_at,received_at) VALUES(?,?,?,?,?,?,?,?,?) ON CONFLICT(account_id) DO UPDATE SET balance=excluded.balance,equity=excluded.equity,margin_used=excluded.margin_used,margin_free=excluded.margin_free,floating_profit=excluded.floating_profit,positions_json=excluded.positions_json,observed_at=excluded.observed_at,received_at=excluded.received_at WHERE excluded.observed_at>=broker_snapshots.observed_at RETURNING account_id AS accountId').bind(account.id, snapshot.account.balance, snapshot.account.equity, snapshot.account.marginUsed, snapshot.account.marginFree, snapshot.account.floatingProfit, JSON.stringify(snapshot.positions), snapshot.observedAt, now).first<{ accountId: string }>()
   if (!written) return c.json({ error: 'Older broker snapshot rejected.' }, 409)
   await c.env.DB.prepare('UPDATE broker_accounts SET updated_at=? WHERE id=? AND owner_id=?').bind(now, account.id, ownerId).run()
-  await c.env.DB.prepare('UPDATE connector_devices SET last_seen_at=? WHERE id=? AND owner_id=? AND revoked_at IS NULL').bind(now, deviceId, ownerId).run()
+  const changed = await c.env.DB.prepare("UPDATE connector_devices SET last_state='SYNCED',last_status_at=?,last_seen_at=? WHERE id=? AND owner_id=? AND revoked_at IS NULL AND last_state<>'SYNCED' RETURNING id").bind(now, now, deviceId, ownerId).first()
+  if (changed) await c.env.DB.prepare('INSERT INTO connector_status_events(device_id,owner_id,state,recorded_at) VALUES(?,?,?,?)').bind(deviceId, ownerId, 'SYNCED', now).run()
+  else await c.env.DB.prepare('UPDATE connector_devices SET last_status_at=?,last_seen_at=? WHERE id=? AND owner_id=? AND revoked_at IS NULL').bind(now, now, deviceId, ownerId).run()
   return c.json({ accountId: account.id, environment: account.environment, observedAt: snapshot.observedAt, mode: 'BROKER_READ_ONLY' })
 })

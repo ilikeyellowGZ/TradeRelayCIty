@@ -19,6 +19,7 @@ class SqliteD1 {
     this.sqlite.exec('PRAGMA foreign_keys=ON; CREATE TABLE "user" (id TEXT PRIMARY KEY); CREATE TABLE app_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL); INSERT INTO "user" VALUES (\'owner-a\'); INSERT INTO "user" VALUES (\'owner-b\'); INSERT INTO app_settings VALUES (\'owner_user_id\',\'owner-a\');')
     this.sqlite.exec(readFileSync(new URL('../../../../migrations/0009_connector_pairing.sql', import.meta.url), 'utf8'))
     this.sqlite.exec(readFileSync(new URL('../../../../migrations/0010_broker_account_metrics.sql', import.meta.url), 'utf8'))
+    this.sqlite.exec(readFileSync(new URL('../../../../migrations/0011_connector_status.sql', import.meta.url), 'utf8'))
   }
 
   prepare(sql: string) {
@@ -73,12 +74,22 @@ describe('connector pairing and snapshots', () => {
     expect((await request('/api/connector/pair', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ code, name: 'Replay' }) })).status).toBe(401)
 
     const bearerHeaders = { authorization: `Bearer ${token}`, 'content-type': 'application/json' }
+    expect((await request('/api/connector/status', { method: 'POST', body: JSON.stringify({ state: 'MCP_OFFLINE' }) })).status).toBe(401)
+    expect((await request('/api/connector/status', { method: 'POST', headers: bearerHeaders, body: JSON.stringify({ state: 'SYNCED' }) })).status).toBe(400)
+    expect((await request('/api/connector/status', { method: 'POST', headers: bearerHeaders, body: JSON.stringify({ state: 'MCP_OFFLINE' }) })).status).toBe(200)
+    expect((await request('/api/connector/status', { method: 'POST', headers: bearerHeaders, body: JSON.stringify({ state: 'MCP_OFFLINE' }) })).status).toBe(200)
+    const offlineDevices = await request('/api/broker/devices', { headers: ownerHeaders })
+    expect((await offlineDevices.json() as { devices: Array<{ lastState: string }> }).devices[0].lastState).toBe('MCP_OFFLINE')
     const upload = await request('/api/connector/snapshot', { method: 'POST', headers: bearerHeaders, body: JSON.stringify(snapshot()) })
     expect(upload.status).toBe(200)
     const accounts = await request('/api/broker/accounts', { headers: ownerHeaders })
     expect(accounts.status).toBe(200)
     const accountList = (await accounts.json() as { accounts: Array<{ id: string; balance: number; marginUsed: number; marginFree: number; floatingProfit: number; positions: Array<{ ticket: string }>; stale: boolean }> }).accounts
     expect(accountList[0]).toMatchObject({ balance: 10000, marginUsed: 120, marginFree: 9878, floatingProfit: -2, positions: [{ ticket: '42' }], stale: false })
+    const eventsPath = `/api/broker/devices/${deviceId}/events`
+    expect((await request(eventsPath, { headers: { cookie: 'session=other' } })).status).toBe(403)
+    const events = await request(eventsPath, { headers: ownerHeaders })
+    expect((await events.json() as { events: Array<{ state: string }> }).events.map((event) => event.state)).toEqual(['SYNCED', 'MCP_OFFLINE', 'PAIRED'])
     const questionPath = `/api/broker/accounts/${accountList[0].id}/questions`
     expect((await request(questionPath, { method: 'POST', headers: { ...ownerHeaders, cookie: 'session=other' }, body: JSON.stringify({ question: 'balance' }) })).status).toBe(403)
     const answerResponse = await request(questionPath, { method: 'POST', headers: ownerHeaders, body: JSON.stringify({ question: 'What is my balance?' }) })
@@ -92,6 +103,7 @@ describe('connector pairing and snapshots', () => {
     expect((await request('/api/connector/snapshot', { method: 'POST', headers: bearerHeaders, body: JSON.stringify(switched) })).status).toBe(409)
     expect((await request(`/api/broker/devices/${deviceId}`, { method: 'DELETE', headers: ownerHeaders })).status).toBe(200)
     expect((await request('/api/connector/snapshot', { method: 'POST', headers: bearerHeaders, body: JSON.stringify(snapshot()) })).status).toBe(401)
+    expect((await request('/api/connector/status', { method: 'POST', headers: bearerHeaders, body: JSON.stringify({ state: 'MCP_ERROR' }) })).status).toBe(401)
   })
 
   it('rejects expired pairing codes', async () => {

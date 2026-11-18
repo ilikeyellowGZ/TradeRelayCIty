@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react'
 import { Activity, Check, Copy, Link2, RefreshCw, ShieldCheck, Unplug, X } from 'lucide-react'
 import './broker.css'
 
-type Device = { id: string; name: string; createdAt: number; lastSeenAt: number | null; revokedAt: number | null; broker: string | null; server: string | null; login: string | null; environment: 'DEMO' | 'LIVE' | null }
+type Device = { id: string; name: string; createdAt: number; lastSeenAt: number | null; revokedAt: number | null; lastState: 'PAIRED' | 'SYNCED' | 'MCP_OFFLINE' | 'MCP_ERROR' | 'PAUSED'; statusAt: number | null; broker: string | null; server: string | null; login: string | null; environment: 'DEMO' | 'LIVE' | null }
+type DeviceEvent = { state: Device['lastState']; recordedAt: number }
 type Position = { ticket: string; symbol: string; side: 'BUY' | 'SELL'; volume: number; priceOpen: number; priceCurrent: number; profit: number; stop: number | null; target: number | null }
 type BrokerAccount = { id: string; deviceId: string; broker: string; server: string; login: string; environment: 'DEMO' | 'LIVE'; currency: string; balance: number | null; equity: number | null; marginUsed: number | null; marginFree: number | null; floatingProfit: number | null; positions: Position[]; observedAt: string | null; receivedAt: number | null; stale: boolean }
 
@@ -27,6 +28,9 @@ export function BrokerPage({ focus = 'accounts' }: { focus?: 'accounts' | 'posit
   const [code, setCode] = useState<{ value: string; expiresAt: string } | null>(null)
   const [copied, setCopied] = useState(false)
   const [confirmDeviceId, setConfirmDeviceId] = useState<string | null>(null)
+  const [eventDeviceId, setEventDeviceId] = useState<string | null>(null)
+  const [deviceEvents, setDeviceEvents] = useState<DeviceEvent[]>([])
+  const [eventsBusy, setEventsBusy] = useState(false)
 
   async function refresh() {
     try {
@@ -78,6 +82,23 @@ export function BrokerPage({ focus = 'accounts' }: { focus?: 'accounts' | 'posit
     } finally { setBusy(false) }
   }
 
+  async function toggleEvents(id: string) {
+    if (eventDeviceId === id) { setEventDeviceId(null); return }
+    setEventsBusy(true)
+    setError('')
+    try {
+      const data = await readJson<{ events: DeviceEvent[] }>(await fetch(`/api/broker/devices/${encodeURIComponent(id)}/events`, { cache: 'no-store' }))
+      setDeviceEvents(data.events)
+      setEventDeviceId(id)
+    } catch (cause) { setError(cause instanceof Error ? cause.message : 'Could not load connection events.') }
+    finally { setEventsBusy(false) }
+  }
+
+  const stateLabel: Record<Device['lastState'], string> = {
+    PAIRED: 'Paired; waiting for first sync', SYNCED: 'Last snapshot synced', MCP_OFFLINE: 'MT5 connection offline',
+    MCP_ERROR: 'MT5 read failed', PAUSED: 'Automatic sync paused',
+  }
+
   const activeDevices = devices.filter((device) => device.revokedAt === null)
   return <section className="broker-page" aria-labelledby="broker-title">
     <div className="page-intro page-intro--simple broker-intro">
@@ -97,7 +118,7 @@ export function BrokerPage({ focus = 'accounts' }: { focus?: 'accounts' | 'posit
       </article>
       <article className="panel broker-panel">
         <div className="broker-panel-heading"><div><span className="eyebrow">DEVICE ACCESS</span><h2>Paired devices</h2></div><span className="broker-count">{activeDevices.length}</span></div>
-        {loading ? <p role="status">Loading devices…</p> : devices.length === 0 ? <div className="broker-empty"><Unplug size={23} /><p>No connector is paired yet.</p></div> : <ul className="broker-device-list">{devices.map((device) => <li key={device.id}><div><strong>{device.name}</strong><span>{device.broker ? `${device.broker} · ${device.server} · ${device.login}` : 'No MT5 account snapshot yet'}</span><small>{device.revokedAt ? 'Revoked' : device.lastSeenAt ? `Last seen ${new Date(device.lastSeenAt).toLocaleString()}` : 'Paired; waiting for first sync'}</small></div>{!device.revokedAt && (confirmDeviceId === device.id ? <div className="broker-device-actions"><button type="button" onClick={() => void revokeDevice(device.id)} disabled={busy}>Confirm revoke</button><button type="button" onClick={() => setConfirmDeviceId(null)}>Cancel</button></div> : <button type="button" onClick={() => setConfirmDeviceId(device.id)}>Revoke</button>)}</li>)}</ul>}
+        {loading ? <p role="status">Loading devices…</p> : devices.length === 0 ? <div className="broker-empty"><Unplug size={23} /><p>No connector is paired yet.</p></div> : <ul className="broker-device-list">{devices.map((device) => <li key={device.id}><div><strong>{device.name}</strong><span>{device.broker ? `${device.broker} · ${device.server} · ${device.login}` : 'No MT5 account snapshot yet'}</span><small>{device.revokedAt ? 'Revoked' : `${stateLabel[device.lastState]}${device.statusAt ? ` · ${new Date(device.statusAt).toLocaleString()}` : ''}`}</small></div>{!device.revokedAt && (confirmDeviceId === device.id ? <div className="broker-device-actions"><button type="button" onClick={() => void revokeDevice(device.id)} disabled={busy}>Confirm revoke</button><button type="button" onClick={() => setConfirmDeviceId(null)}>Cancel</button></div> : <button type="button" onClick={() => setConfirmDeviceId(device.id)}>Revoke</button>)}<button type="button" aria-expanded={eventDeviceId === device.id} onClick={() => void toggleEvents(device.id)} disabled={eventsBusy}>{eventDeviceId === device.id ? 'Hide events' : 'Connection events'}</button>{eventDeviceId === device.id && <div className="broker-device-events">{deviceEvents.length ? deviceEvents.map((event) => <p key={`${event.state}-${event.recordedAt}`}>{stateLabel[event.state]} · {new Date(event.recordedAt).toLocaleString()}</p>) : <p>No connection events recorded.</p>}</div>}</li>)}</ul>}
       </article>
     </div>}
 

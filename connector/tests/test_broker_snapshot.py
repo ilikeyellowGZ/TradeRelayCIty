@@ -73,6 +73,9 @@ class BrokerSnapshotTests(unittest.TestCase):
                 if self.path == "/api/connector/pair":
                     self.send_response(201)
                     answer = {"deviceId": "device-1", "token": "A" * 43}
+                elif self.path == "/api/connector/status":
+                    self.send_response(200)
+                    answer = {"state": body["state"]}
                 else:
                     assert body["account"]["login"] == "12345"
                     self.send_response(200)
@@ -92,11 +95,15 @@ class BrokerSnapshotTests(unittest.TestCase):
             token = client.pair("A" * 20, "Windows PC")
             snapshot = {"observedAt": "2026-11-18T08:00:00.000Z", "account": {"login": "12345"}}
             result = client.upload_snapshot(token, snapshot)
+            client.report_status(token, "MCP_OFFLINE")
             self.assertEqual(result["accountId"], "account-1")
             self.assertEqual(seen, [
                 ("/api/connector/pair", None, None, "TradeRelayCity-Connector/0.1"),
                 ("/api/connector/snapshot", "Bearer " + "A" * 43, None, "TradeRelayCity-Connector/0.1"),
+                ("/api/connector/status", "Bearer " + "A" * 43, None, "TradeRelayCity-Connector/0.1"),
             ])
+            with self.assertRaisesRegex(RuntimeError, "Invalid connector status"):
+                client.report_status(token, "SYNCED")
         finally:
             server.shutdown()
             server.server_close()

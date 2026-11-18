@@ -69,3 +69,10 @@ class CloudClient:
         if result.get("mode") != "BROKER_READ_ONLY" or ("observedAt" in result and result["observedAt"] != snapshot.get("observedAt")):
             raise CloudClientError("Connector API did not confirm this read-only snapshot")
         return result
+
+    def report_status(self, token: str, state: str) -> None:
+        if not token or len(token) != 43 or state not in ("MCP_OFFLINE", "MCP_ERROR", "PAUSED"):
+            raise CloudClientError("Invalid connector status report")
+        result = self._post("/api/connector/status", {"state": state}, token)
+        if result.get("state") != state:
+            raise CloudClientError("Connector API did not confirm this status")

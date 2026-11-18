@@ -7,8 +7,8 @@ Updated 2026-11-18. The repository is an existing React/Vite frontend, Hono Clou
 | Owner login and protected `/app` | Implemented, locally tested | D1 session cookie; remote staging login and expiry still unverified |
 | Local simulation, deterministic HOLD provider, CSV backtest | Implemented, locally tested | No broker order path or performance claim |
 | MT5 native MCP discovery | Implemented, terminal verified | Official Python SDK discovered 107 tools; terminal broker connection was disconnected |
-| Device pairing, revocation, owner-scoped snapshot API | Implemented, locally tested | Migration 0009 applied locally; remote staging and multi-user provisioning unverified |
-| Windows connector snapshot collection and auto retry | Implemented, partially verified | SDK reads account and open-position tools; margin/profit response keys confirmed on disconnected terminal; connected FxPro values and nonempty position mapping unverified |
+| Device pairing, revocation, owner-scoped snapshot/status API | Implemented, locally tested | Migrations 0009–0011 applied locally; remote staging and multi-user provisioning unverified |
+| Windows connector snapshot collection and auto retry | Implemented, partially verified | SDK reads account and open-position tools; connector reports offline/error/pause states; margin/profit keys confirmed on disconnected terminal; connected FxPro values and nonempty position mapping unverified |
 | Broker Accounts/Positions pages | Implemented, browser checked with synthetic UI data | Balance, equity, MT5 floating P&L, used/free margin, and stale/empty states; no actual broker snapshot yet |
 | MT5 snapshot question assistant | Implemented, locally tested | Deterministic read-only balance, margin, positions and P&L answers with source/time; no model provider called |
 | Groq/Gemini decision adapters | Implemented but not routed to production | Structured opinion validation exists; real key/provider calls not verified |
