@@ -148,3 +148,9 @@ Updated: 2026-11-09
 
 - Added `scripts/reset-owner-password.ps1` for an existing local or staging owner. It identifies the configured owner, requires the username to be typed as confirmation, prompts for the replacement password without echoing it, uses Better Auth's password hash, and revokes existing website sessions. There is no public password-reset endpoint.
 - `-CheckOnly` returned the configured username `iluvgirls` against both local and staging D1 without changing either credential. PowerShell parsing, Wrangler SQL-file JSON shape, and Better Auth hash format were checked. The actual reset was not run because the owner has not chosen a new password.
+
+## 2026-11-18 staging status release
+
+- Applied migration 0011 to the staging D1 database and deployed Worker version `3e16d76f-959e-4614-a719-fd799fd2b213` with the connector status API and corrected health mode. The deployment used the staging D1 binding and `SIMULATION_MODE=false`.
+- Remote checks: `/api/health` reports `BROKER_READ_ONLY` and `isLive=false`; unsigned `/app` redirects to `/login`; simulation routes return 404; unauthenticated broker and connector status routes return 401. The staging download is a direct EXE, HTTP 200, and its SHA-256 matches the current public binary.
+- Before deployment, 59 TypeScript and 35 Python tests passed; the staging build passed, targeted the staging D1 ID, and removed `.dev.vars` from the output. The MT5 endpoint on this PC was unavailable, so a connected demo snapshot remains unverified.
