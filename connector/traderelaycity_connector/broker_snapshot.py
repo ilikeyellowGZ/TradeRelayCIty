@@ -50,7 +50,7 @@ def normalize_mt5_snapshot(info: dict, open_trades: dict, observed_at: datetime 
     if not isinstance(account, dict) or not isinstance(terminal, dict):
         raise SnapshotError("MT5 account response is missing account or terminal")
     connection = terminal.get("connection")
-    if not isinstance(connection, dict) or connection.get("state") != "connected":
+    if not isinstance(connection, dict) or connection.get("state") not in ("connected", "synchronized"):
         raise SnapshotError("MT5 broker connection is offline; no snapshot was uploaded")
     broker = _identity(account.get("broker"), "broker", 80)
     server = _identity(account.get("server"), "server", 100)

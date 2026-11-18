@@ -73,7 +73,7 @@ async def inspect_mt5(endpoint: str, bearer_key: str) -> McpDiagnostics:
                             connection = terminal.get("connection", {}) if isinstance(terminal, dict) else {}
                             mode = account.get("type") if isinstance(account, dict) else None
                             state = connection.get("state") if isinstance(connection, dict) else None
-                            ready_for_demo = mode == "demo" and state == "connected"
+                            ready_for_demo = mode == "demo" and state in ("connected", "synchronized")
                             summary = f"MCP account reports {str(mode or 'unknown').upper()} and broker connection {state or 'unknown'}."
                     else:
                         summary = "Account info capability is present but requires unsupported parameters; no order tools were called."

@@ -35,6 +35,10 @@ class BrokerSnapshotTests(unittest.TestCase):
         self.assertEqual(result["account"]["floatingProfit"], -10.0)
         self.assertEqual(result["observedAt"], "2026-11-18T08:00:00.000Z")
 
+    def test_normalizes_synchronized_demo_account_and_positions(self):
+        result = normalize_mt5_snapshot(account(state="synchronized"), {"positions": [], "orders": []})
+        self.assertEqual(result["account"]["environment"], "DEMO")
+
     def test_missing_margin_field_blocks_incomplete_snapshot(self):
         info = account()
         del info["account"]["margin_free"]
