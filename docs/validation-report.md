@@ -2,20 +2,27 @@
 
 ## Public accounts with recovery codes — 19 November 2026
 
-The `feat/public-user-onboarding-clean` branch implements public username/password accounts without email, eight one-time recovery codes, code-based password reset with session revocation, signed-in code rotation, per-user broker pairing, and a connector built for `https://traderelaycity.service-heyywebb.workers.dev`. It has been merged with the local EURUSD demo bot work. The hosted website serves the earlier demo bot release; this public-account revision has not been deployed.
+The merged `main` branch implements public username/password accounts without email, eight one-time recovery codes, code-based password reset with session revocation, signed-in code rotation, per-user broker pairing, and a connector built for `https://traderelaycity.service-heyywebb.workers.dev`. It includes the separately armed local EURUSD demo bot. The public-account revision was deployed to the configured staging Worker as version `1b880ac7-81ef-4675-9f07-fd9fd9778eb3`.
 
 ### Passed locally
 
 - `npm test`: 20 files, 101 tests passed. Coverage includes Better Auth username sign-in, hashed recovery codes, concurrent code replay denial, code rotation, old-session revocation, route closure, two-user broker isolation, and the bound demo opinion route.
 - `npm run db:migrate:local`: migration `0015_account_recovery.sql` applied after earlier migrations.
 - `node scripts/smoke-local-recovery.mjs` against the local Worker and D1: two disposable users registered and signed in; only one saw its paired device; foreign revoke returned 404; own revoke blocked the device token; code rotation, reset, prior-session revocation, and email route closure passed.
-- `npm run build`: Worker and client production bundles succeeded. `npx react-doctor@latest --verbose --scope changed` found no changed-React issues. `npm audit --audit-level=moderate` found zero vulnerabilities after the Vitest update.
+- `npm run build`: Worker and client production bundles succeeded. `npx react-doctor@latest --verbose --scope changed` found no changed-React issues; it reported one Worker await-order warning, left sequential so rate limiting completes before the username lookup. `npm audit --audit-level=moderate` found zero vulnerabilities after the Vitest update.
 - Connector Python suite: 46 tests passed. `connector/build-windows.ps1 -WebsiteUrl https://traderelaycity.service-heyywebb.workers.dev` built a 25,485,072-byte executable (SHA-256 `e27806bc8cf3daeb074e32051f3034755b7c4e93928ca038527e58c9c1ad6fed`). The PyInstaller archive contains `assets/release-site.json`; the source, public download, and built website asset have matching hashes.
-- No `.dev.vars` appears in `dist`; the built client includes `_headers` security rules. The hosted `/api/health` returned HTTP 200 with `BROKER_READ_ONLY` and `isLive:false` on this date.
+- No `.dev.vars` appears in `dist`; the built client includes `_headers` security rules.
+
+### Passed on the hosted staging Worker
+
+- Migrations `0014_public_auth.sql` and `0015_account_recovery.sql` applied to `traderelaycity-staging`. The staging build targeted that D1 database and the shared website origin.
+- Two disposable users registered and signed in. Pairing visibility was separate; a foreign device revoke returned 404; the owner revoked its device and the token stopped working. Recovery-code rotation, password reset, old-session revocation, and closure of email signup all passed.
+- The hosted Windows download returned HTTP 200 as `application/octet-stream`; its 25,485,072 bytes matched the local release SHA-256 `e27806bc8cf3daeb074e32051f3034755b7c4e93928ca038527e58c9c1ad6fed`.
+- The hosted landing and signup pages returned HTTP 200; unsigned `/app` redirected. The hosted `/api/health` returned HTTP 200 with `BROKER_READ_ONLY` and `isLive:false`; security headers were present.
 
 ### Pending before inviting recipients
 
-Merge the isolated branch with the active trading work without overwriting concurrent changes; apply migration 0015 to the chosen hosted D1; deploy matching Worker, assets, and connector; test two fresh hosted users' signup, recovery, pairing, isolation, revocation, and a connected demo MT5 snapshot. Browser visual inspection was unavailable because the computer-use browser host was unavailable. Automatic/live order execution remains disabled.
+Test a recipient's connected demo MT5 snapshot and first-run Windows GUI on another PC. Browser visual inspection was unavailable because the computer-use browser host was unavailable. A real demo broker fill and reconciliation remain unverified. Live-account order execution remains disabled.
 ### Historical baseline
 
 Updated 7 November 2026. Local checks validate simulation and build boundaries only. No provider, remote Cloudflare, or broker credentials were used.

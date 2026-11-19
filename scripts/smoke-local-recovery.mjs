@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { randomBytes } from 'node:crypto'
 
-const origin = 'http://127.0.0.1:5173'
+const origin = process.env.SMOKE_ORIGIN ?? 'http://127.0.0.1:5173'
 const username = `smoke${Date.now().toString(36)}`
 const otherUsername = `${username}b`
 const password = `LocalOnly-${randomBytes(16).toString('hex')}`
@@ -11,7 +11,7 @@ const testIp = `203.0.113.${(Date.now() % 200) + 1}`
 async function post(path, body, cookie) {
   return fetch(origin + path, {
     method: 'POST', redirect: 'manual',
-    headers: { origin, 'content-type': 'application/json', 'cf-connecting-ip': testIp, ...(cookie ? { cookie } : {}) },
+    headers: { origin, 'content-type': 'application/json', ...(origin.startsWith('http://127.0.0.1:') ? { 'cf-connecting-ip': testIp } : {}), ...(cookie ? { cookie } : {}) },
     body: JSON.stringify(body),
   })
 }
@@ -70,4 +70,4 @@ assertStatus(await post('/api/auth/sign-in/username', { username, password }), 4
 assertStatus(await post('/api/auth/sign-in/username', { username, password: newPassword }), 200, 'New password accepted')
 assertStatus(await post('/api/auth/sign-up/email', { username, password }), 404, 'Email signup closed')
 
-console.log('Local D1 onboarding smoke passed: two users, pairing isolation, device revocation, recovery rotation/reset, session revocation, and email route closure.')
+console.log(`Onboarding smoke passed at ${origin}: two users, pairing isolation, device revocation, recovery rotation/reset, session revocation, and email route closure.`)

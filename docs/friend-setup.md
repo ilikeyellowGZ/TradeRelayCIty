@@ -1,6 +1,6 @@
 # Set up your TradeRelayCity workspace
 
-TradeRelayCity uses one shared website. Each person creates their own account and pairs their own Windows connector to their own MT5 terminal. The current release shows read-only MT5 snapshots; automatic trading and live orders are not enabled yet.
+TradeRelayCity uses one shared website. Each person creates their own account and pairs their own Windows connector to their own MT5 terminal. The website shows read-only MT5 snapshots. A separate local EURUSD demo bot can submit demo orders only when explicitly armed and its safety checks pass; live-account orders are disabled.
 
 1. Open the TradeRelayCity website and choose **Create your account**. Enter your name, username, and a password with at least 12 characters. No email address is needed.
 2. Save the eight recovery codes shown after signup in a password manager or another private place. They are shown only once. A code can reset your password if you forget it. If you lose both your password and codes, the account cannot be recovered automatically. Sign in on the website after saving the codes.
@@ -11,4 +11,4 @@ TradeRelayCity uses one shared website. Each person creates their own account an
 
 The website account and MT5 login are separate. Never enter your broker password into TradeRelayCity. In the workspace, open **Security** to replace your recovery codes using your current password; new codes invalidate every old code. If the connector reports HTTP 401, copy the current terminal Bearer key from MT5 again without the `Bearer ` prefix. A stale snapshot or disconnected status means the displayed values are not current.
 
-Your PC, connector, and MT5 must remain running for snapshot updates. Sleep, reboot, logout, a closed terminal, or loss of internet pauses them. Closing the connector does not close any MT5 positions. The current connector never submits broker orders.
+Your PC, connector, and MT5 must remain running for snapshot updates. Sleep, reboot, logout, a closed terminal, or loss of internet pauses them. Closing the connector does not close any MT5 positions. The read-only sync controls do not submit orders; the separately armed demo bot is described in [MT5 demo bot test](demo-bot.md). A real broker demo fill has not yet been verified.
