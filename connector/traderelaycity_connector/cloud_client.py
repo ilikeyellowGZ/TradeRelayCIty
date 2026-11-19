@@ -88,8 +88,11 @@ class CloudClient:
         if not token or len(token) != 43:
             raise CloudClientError("Paired device credential is missing")
         result = self._post("/api/connector/snapshot", snapshot, token)
-        if result.get("mode") != "BROKER_READ_ONLY" or ("observedAt" in result and result["observedAt"] != snapshot.get("observedAt")):
-            raise CloudClientError("Connector API did not confirm this read-only snapshot")
+        account = snapshot.get("account")
+        if (result.get("mode") != "BROKER_READ_ONLY" or not isinstance(result.get("accountId"), str) or not result["accountId"]
+                or not isinstance(account, dict) or result.get("environment") != account.get("environment")
+                or result.get("observedAt") != snapshot.get("observedAt")):
+            raise CloudClientError("Connector API did not confirm the exact account mode and read-only snapshot")
         return result
 
     def report_status(self, token: str, state: str) -> None:

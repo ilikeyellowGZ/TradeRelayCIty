@@ -15,11 +15,36 @@ from traderelaycity_connector.strategy import Candle, confirmed_swings, validate
 from traderelaycity_connector.backtest import _simulate
 from traderelaycity_connector.strategy import CandidateSignal
 from traderelaycity_connector.simulation_client import SimulationClient, validate_simulation_base_url
-from traderelaycity_connector.main import mt5_executable, open_website_and_mt5, trading_page_url
+from traderelaycity_connector.main import ConnectorApp, account_connection_message, mt5_executable, open_website_and_mt5, trading_page_url
 from decimal import Decimal as D
 from datetime import datetime, timedelta, timezone
 
 class ConnectorBoundaryTests(unittest.TestCase):
+    @unittest.skipUnless(sys.platform == "win32", "Windows connector UI only")
+    def test_demo_controls_require_verified_demo_mode(self):
+        app = ConnectorApp()
+        try:
+            self.assertEqual(str(app.demo_arm_control.cget("state")), "disabled")
+            app._set_connected_environment("DEMO")
+            self.assertEqual(str(app.demo_arm_control.cget("state")), "normal")
+            app.demo_arm.set(True)
+            app.demo_watch.set(True)
+            app._set_connected_environment("LIVE")
+            self.assertEqual(str(app.demo_arm_control.cget("state")), "disabled")
+            self.assertEqual(str(app.demo_run_button.cget("state")), "disabled")
+            self.assertFalse(app.demo_arm.get())
+            self.assertFalse(app.demo_watch.get())
+        finally:
+            app.destroy()
+
+    def test_account_mode_message_distinguishes_demo_from_live(self):
+        account = {"environment": "DEMO", "broker": "Broker", "server": "Demo", "login": "123", "currency": "USD"}
+        self.assertIn("DEMO account", account_connection_message(account)[0])
+        self.assertIn("separate session arming", account_connection_message(account)[1])
+        account["environment"] = "LIVE"
+        self.assertIn("LIVE account", account_connection_message(account)[0])
+        self.assertIn("disabled", account_connection_message(account)[1])
+
     def test_trading_page_link_uses_the_configured_website_origin(self):
         self.assertEqual(trading_page_url("https://example.com/"), "https://example.com/app/trading")
         with self.assertRaises(ValueError):

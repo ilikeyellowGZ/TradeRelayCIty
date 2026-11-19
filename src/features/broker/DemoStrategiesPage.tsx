@@ -3,7 +3,7 @@ import { Bot, Check, ShieldCheck, Sparkles } from 'lucide-react'
 import './broker.css'
 
 type Config = { type: 'sweep_fvg_v1'; symbol: 'EURUSD'; sweepLookback: number; displacementAtr: number; minGapAtr: number; rewardRisk: number }
-type Account = { id: string; broker: string; server: string; login: string; environment: 'DEMO' | 'LIVE' }
+type Account = { id: string; broker: string; server: string; login: string; environment: 'DEMO' | 'LIVE'; observedAt: string | null; stale: boolean }
 type Strategy = { id: string; name: string; config: Config; active: boolean; updatedAt: number }
 const initial: Config = { type: 'sweep_fvg_v1', symbol: 'EURUSD', sweepLookback: 8, displacementAtr: 1.2, minGapAtr: 0.1, rewardRisk: 2 }
 
@@ -35,7 +35,7 @@ export function DemoStrategiesPage() {
     void fetch('/api/broker/accounts', { cache: 'no-store' }).then((response) => json<{ accounts: Account[] }>(response)).then((result) => {
       if (!alive) return
       const demos = result.accounts.filter((account) => account.environment === 'DEMO')
-      setAccounts(demos)
+      setAccounts(result.accounts)
       setAccountId(demos[0]?.id ?? '')
     }).catch((cause) => { if (alive) setError(cause instanceof Error ? cause.message : 'Accounts unavailable.') }).finally(() => { if (alive) setLoading(false) })
     return () => { alive = false }
@@ -54,6 +54,8 @@ export function DemoStrategiesPage() {
     finally { setBusy(false) }
   }
   const update = (key: keyof Config, value: string) => setConfig((previous) => ({ ...previous, [key]: Number(value) }))
+  const demoAccounts = accounts.filter((account) => account.environment === 'DEMO')
+  const liveAccounts = accounts.filter((account) => account.environment === 'LIVE')
   const fields: { key: 'sweepLookback' | 'displacementAtr' | 'minGapAtr' | 'rewardRisk'; label: string; help: string; min: number; max: number; step: number }[] = [
     { key: 'sweepLookback', label: 'Sweep window', help: 'Recent closed M15 bars searched for a liquidity sweep.', min: 4, max: 16, step: 1 },
     { key: 'displacementAtr', label: 'Displacement strength', help: 'Minimum candle body as a multiple of ATR.', min: 0.8, max: 2, step: 0.1 },
@@ -66,8 +68,9 @@ export function DemoStrategiesPage() {
     <div className="broker-state-note" role="note"><ShieldCheck size={19} /><span>Activation only selects the setup rules. The Windows connector must still be armed. A cycle can return HOLD when no closed-bar setup or AI approval exists. LIVE entries remain disabled.</span></div>
     {error && <p className="broker-error" role="alert">{error}</p>}
     {notice && <p className="strategy-notice" role="status"><Check size={18} />{notice}</p>}
-    {loading ? <p>Loading paired DEMO accounts…</p> : accounts.length === 0 ? <article className="panel broker-panel"><h2>Pair a DEMO account first</h2><p>Open Accounts, pair the Windows connector, and sync an MT5 DEMO snapshot. Your strategy will then be bound to that account.</p></article> : <>
-      <label className="strategy-account">DEMO account<select value={accountId} onChange={(event) => setAccountId(event.target.value)}>{accounts.map((account) => <option key={account.id} value={account.id}>{account.broker} · {account.server} · {account.login}</option>)}</select></label>
+    {liveAccounts.length > 0 && <article className="panel broker-panel" aria-label="Live account readiness"><div className="broker-panel-heading"><div><span className="eyebrow">LIVE ACCOUNT STATUS</span><h2>Live accounts are read only</h2></div><ShieldCheck size={22} aria-hidden="true" /></div><p>These accounts can sync snapshots. Automatic live orders are unavailable until the demo order flow and each live account's broker settings pass validation.</p><ul className="broker-device-list">{liveAccounts.map((account) => <li key={account.id}><div><strong>{account.broker} · {account.server}</strong><span>LIVE · Login {account.login}</span><small>{account.observedAt ? `${account.stale ? 'Stale snapshot' : 'Last snapshot'} · ${new Date(account.observedAt).toLocaleString()}` : 'Waiting for a snapshot'}</small></div></li>)}</ul></article>}
+    {loading ? <p>Loading paired accounts…</p> : demoAccounts.length === 0 ? <article className="panel broker-panel"><h2>Pair a DEMO account first</h2><p>Open Accounts, pair the Windows connector, and sync an MT5 DEMO snapshot. Your strategy will then be bound to that account.</p></article> : <>
+      <label className="strategy-account">DEMO account<select value={accountId} onChange={(event) => setAccountId(event.target.value)}>{demoAccounts.map((account) => <option key={account.id} value={account.id}>{account.broker} · {account.server} · {account.login}</option>)}</select></label>
       <div className="strategy-grid">
         <div className="panel strategy-ai"><div className="broker-panel-heading"><div><span className="eyebrow">AI ASSISTED DRAFT</span><h2>Describe your setup</h2></div><Sparkles size={22} aria-hidden="true" /></div><p>Describe how selective you want the EURUSD sweep and FVG setup to be. AI can suggest settings for this template; it cannot add new indicators or trade directly.</p><label htmlFor="strategy-description">Your strategy idea</label><textarea id="strategy-description" value={description} onChange={(event) => setDescription(event.target.value)} minLength={20} maxLength={1000} rows={4} placeholder="For EURUSD demo, use a stronger displacement candle and a wider fair value gap, with a 2:1 target." /><button type="button" className="pill-button pill-button--secondary" disabled={busy || description.trim().length < 20} onClick={() => void act(async () => { const draft = await json<{ name: string; config: Config; explanation: string; provider: string }>(await fetch(`/api/broker/accounts/${encodeURIComponent(accountId)}/strategies/draft`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ description }) })); setName(draft.name); setConfig(draft.config); setDraftExplanation(draft.explanation); setNotice('AI draft loaded into the editor. Review it, save it, then activate it.') })}>{busy ? 'Drafting…' : 'Draft with AI'}</button>{draftExplanation && <p className="strategy-ai-explanation">{draftExplanation}</p>}</div>
         <form className="panel strategy-editor" onSubmit={(event) => { event.preventDefault(); void act(async () => {

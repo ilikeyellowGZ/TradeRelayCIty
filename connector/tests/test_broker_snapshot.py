@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 from traderelaycity_connector.broker_snapshot import SnapshotError, normalize_mt5_snapshot
-from traderelaycity_connector.cloud_client import CloudClient, validate_website_url
+from traderelaycity_connector.cloud_client import CloudClient, CloudClientError, validate_website_url
 
 
 def account(state="connected", account_type="demo"):
@@ -78,6 +78,16 @@ class BrokerSnapshotTests(unittest.TestCase):
             with self.subTest(unsafe=unsafe), self.assertRaises(ValueError):
                 validate_website_url(unsafe)
 
+    def test_snapshot_receipt_must_match_account_environment_and_observation(self):
+        client = CloudClient("https://example.com")
+        snapshot = {"observedAt": "2026-11-18T08:00:00.000Z", "account": {"environment": "LIVE"}}
+        client._post = lambda *_args: {"accountId": "account-1", "mode": "BROKER_READ_ONLY", "environment": "DEMO", "observedAt": snapshot["observedAt"]}
+        with self.assertRaisesRegex(CloudClientError, "exact account mode"):
+            client.upload_snapshot("A" * 43, snapshot)
+        client._post = lambda *_args: {"accountId": "account-1", "mode": "BROKER_READ_ONLY", "environment": "LIVE", "observedAt": "older"}
+        with self.assertRaisesRegex(CloudClientError, "exact account mode"):
+            client.upload_snapshot("A" * 43, snapshot)
+
     def test_pair_and_upload_use_device_bearer_without_browser_cookie(self):
         seen = []
 
@@ -98,7 +108,7 @@ class BrokerSnapshotTests(unittest.TestCase):
                 else:
                     assert body["account"]["login"] == "12345"
                     self.send_response(200)
-                    answer = {"accountId": "account-1", "mode": "BROKER_READ_ONLY", "observedAt": body["observedAt"]}
+                    answer = {"accountId": "account-1", "mode": "BROKER_READ_ONLY", "environment": body["account"]["environment"], "observedAt": body["observedAt"]}
                 self.send_header("content-type", "application/json")
                 self.end_headers()
                 self.wfile.write(json.dumps(answer).encode())
@@ -112,7 +122,7 @@ class BrokerSnapshotTests(unittest.TestCase):
         try:
             client = CloudClient(f"http://127.0.0.1:{server.server_port}")
             token = client.pair("A" * 20, "Windows PC")
-            snapshot = {"observedAt": "2026-11-18T08:00:00.000Z", "account": {"login": "12345"}}
+            snapshot = {"observedAt": "2026-11-18T08:00:00.000Z", "account": {"login": "12345", "environment": "DEMO"}}
             result = client.upload_snapshot(token, snapshot)
             client.report_status(token, "MCP_OFFLINE")
             client.sign_out(token)

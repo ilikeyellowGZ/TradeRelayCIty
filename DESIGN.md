@@ -54,6 +54,8 @@ Below 1024px the floating navigation becomes a fixed, scrollable drawer with 16p
 - The Windows connector has a Sign out and disconnect control. It stops scheduled sync and demo runs, revokes the paired device on the website, and clears its local device and MT5 credentials. If revocation cannot be confirmed, local activity stays stopped and the user can retry or revoke the device on the website.
 - The Windows connector has an Open Trading page on website button. It opens the configured website's authenticated `/app/trading` route in the browser; sign-in returns the user to Trading. The button never submits an MT5 order.
 - The Windows connector has an Open website and MT5 button. On first use, the user selects their MT5 terminal executable; the app remembers that local path, launches MT5, then opens the same Trading page. It does not pair, sync, or submit orders.
+- A read-only MT5 check labels the exact detected account as DEMO or LIVE with broker, server, login and currency. A successful website snapshot confirms the paired account mode; any receipt with a different mode or observation time is rejected. LIVE always says automatic trading is disabled until the separate live readiness release.
+- DEMO arming and bot controls start disabled. They become available only after a read-only check or paired sync identifies a DEMO account; a LIVE account, failed check, failed sync, or sign-out clears session arming and disables those controls.
 - The MT5 MCP status is separate from simulation state and links to Accounts. It names unpaired, recently synced, offline, read error, paused, stale, checking, and unavailable states in text as well as color. A sync older than 45 seconds is unverified because the Windows connector normally syncs every 15 seconds; an old snapshot must not imply a current connection.
 
 ### Theme system
@@ -67,6 +69,7 @@ Below 1024px the floating navigation becomes a fixed, scrollable drawer with 16p
 
 ### Forms, tables, assistant and dialogs
 - The Trading destination uses the shared navy panel, cream action, labeled inputs, and account selector for a DEMO-only strategy editor. AI drafts populate the same bounded fields; saved drafts need a separate Activate action. Active and draft states are shown in text, and connector arming remains local.
+- The Trading destination lists paired LIVE accounts separately with broker, server, login, and observation time. The panel plainly states that live automation is unavailable until broker validation and per-account readiness checks pass; it has no active live trade control in the current release.
 - Use shared themed surfaces, visible validation, 56px table rows, aligned columns, 14px content, compact pill filters and readable assistant message widths.
 - On phones, the assistant workspace uses 16px outer corners in place of the desktop card radius.
 - The assistant workspace grows with its conversations and messages so the page scrolls through the full content. The mobile conversation list has no separate scroll area.

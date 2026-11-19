@@ -60,6 +60,14 @@ def open_website_and_mt5(website_url: str, mt5_path: str, launch_mt5, open_websi
     if not open_website(url):
         raise RuntimeError("MT5 opened, but the website browser did not open")
 
+
+def account_connection_message(account: dict) -> tuple[str, str]:
+    environment = account["environment"]
+    status = f"{environment} account connected · read only"
+    identity = f"{account['broker']} / {account['server']} / {account['login']} ({account['currency']})"
+    purpose = "DEMO bot requires separate session arming." if environment == "DEMO" else "LIVE automatic trading is disabled in this build."
+    return status, f"MT5 key authenticated for {identity}. {purpose}"
+
 class ConnectorApp(tk.Tk):
     def __init__(self):
         super().__init__()
@@ -75,13 +83,16 @@ class ConnectorApp(tk.Tk):
         self.message = tk.StringVar(value="Pair this device from the signed-in website, then sync a read-only MT5 snapshot.")
         self.sync_enabled = bool(self.config_data.get("auto_sync_enabled", False))
         self.sync_busy = False
-        self.sync_results: queue.Queue[tuple[bool, str]] = queue.Queue()
+        self.sync_results: queue.Queue[tuple[bool, str, str]] = queue.Queue()
+        self.test_busy = False
+        self.test_results: queue.Queue[tuple[bool, str, str, str]] = queue.Queue()
         self.demo_results: queue.Queue[tuple[bool, str]] = queue.Queue()
         self.demo_busy = False
         self.sign_out_busy = False
         self.sign_out_results: queue.Queue[tuple[bool, str]] = queue.Queue()
         self.demo_arm = tk.BooleanVar(value=False)
         self.demo_watch = tk.BooleanVar(value=False)
+        self.connected_environment: str | None = None
         self.next_demo_at = 0.0
         self._build()
         self.after(200, self._drain_sync_results)
@@ -120,7 +131,8 @@ class ConnectorApp(tk.Tk):
         row = ttk.Frame(outer)
         row.pack(fill="x", pady=(9, 11))
         ttk.Button(row, text="Save local settings", command=self.save).pack(side="left")
-        ttk.Button(row, text="Test connection (read only)", command=self.test_connection).pack(side="right")
+        self.test_button = ttk.Button(row, text="Test connection (read only)", command=self.test_connection)
+        self.test_button.pack(side="right")
         ttk.Label(outer, text="One-time pairing code from the website").pack(anchor="w", pady=(8, 3))
         self.pair_code = ttk.Entry(outer)
         self.pair_code.pack(fill="x", ipady=5)
@@ -137,9 +149,12 @@ class ConnectorApp(tk.Tk):
         self.sign_out_button = ttk.Button(outer, text="Sign out and disconnect", command=self.sign_out)
         self.sign_out_button.pack(anchor="w", pady=(0, 10))
         ttk.Separator(outer).pack(fill="x", pady=3)
-        ttk.Checkbutton(outer, text="Arm EURUSD DEMO orders for this session (one per UTC day)", variable=self.demo_arm).pack(anchor="w", pady=(5, 3))
-        ttk.Checkbutton(outer, text="Run the demo bot every 15 minutes while armed", variable=self.demo_watch).pack(anchor="w", pady=(0, 5))
-        ttk.Button(outer, text="Run one demo bot cycle", command=self.run_demo_bot).pack(anchor="w", pady=(0, 10))
+        self.demo_arm_control = ttk.Checkbutton(outer, text="Arm EURUSD DEMO orders for this session (one per UTC day)", variable=self.demo_arm, state="disabled")
+        self.demo_arm_control.pack(anchor="w", pady=(5, 3))
+        self.demo_watch_control = ttk.Checkbutton(outer, text="Run the demo bot every 15 minutes while armed", variable=self.demo_watch, state="disabled")
+        self.demo_watch_control.pack(anchor="w", pady=(0, 5))
+        self.demo_run_button = ttk.Button(outer, text="Run one demo bot cycle", command=self.run_demo_bot, state="disabled")
+        self.demo_run_button.pack(anchor="w", pady=(0, 10))
         ttk.Separator(outer).pack(fill="x", pady=7)
         ttk.Label(outer, textvariable=self.message, style="Hint.TLabel").pack(fill="x", anchor="w")
         ttk.Label(outer, text="Demo entries need a closed-bar setup, AI approval, broker calculations, order check and protective stop. Missing data blocks the order.", style="Hint.TLabel").pack(fill="x", anchor="w", pady=(8, 0))
@@ -159,20 +174,34 @@ class ConnectorApp(tk.Tk):
         return True
 
     def test_connection(self) -> None:
-        if not self.save():
+        if self.test_busy or self.sign_out_busy or not self.save():
             return
-        if not self.secret.get().strip():
+        key = self.secret.get().strip()
+        if not key:
             messagebox.showinfo("MT5 key required", "Copy the MCP Bearer key from the local MT5 terminal configuration.")
             return
-        self.status.set("Connecting · read-only checks")
-        self.update_idletasks()
-        try:
-            result = asyncio.run(inspect_mt5(self.entries["mcp_url"].get().strip(), self.secret.get().strip()))
-            self.message.set(f"{result.account_summary}\nRead-only tools: {', '.join(result.allowed_read_only_tools) or 'none'}\nDemo order capability requires a separate armed bot cycle.")
-            self.status.set("Demo broker connected; read only" if result.ready_for_demo else "MCP connected; broker not demo-ready")
-        except Exception as error:  # show a bounded diagnostic, never the secret
-            self.status.set("Offline · MCP connection check failed")
-            self.message.set(f"{type(error).__name__}: {str(error)[:240]}")
+        endpoint = self.entries["mcp_url"].get().strip()
+        self._set_connected_environment(None)
+        self.test_busy = True
+        self.test_button.configure(state="disabled")
+        self.status.set("Checking MT5 account · read only")
+        self.message.set("Authenticating the MT5 key and reading the broker account.")
+
+        def work() -> None:
+            try:
+                async def check() -> tuple:
+                    diagnostics = await inspect_mt5(endpoint, key)
+                    snapshot = await read_broker_snapshot(endpoint, key)
+                    return diagnostics, snapshot
+
+                diagnostics, snapshot = asyncio.run(check())
+                status, detail = account_connection_message(snapshot["account"])
+                tools = ', '.join(diagnostics.allowed_read_only_tools) or 'none'
+                self.test_results.put((True, status, f"{detail}\nRead-only tools: {tools}", snapshot["account"]["environment"]))
+            except Exception as error:  # bounded diagnostic; never include the key
+                self.test_results.put((False, "Offline · MCP connection check failed", f"{type(error).__name__}: {str(error)[:240]}", ""))
+
+        threading.Thread(target=work, daemon=True).start()
 
     def pair(self) -> None:
         if not self.save():
@@ -225,7 +254,7 @@ class ConnectorApp(tk.Tk):
             self.message.set(f"Could not open both apps: {error}")
 
     def sync_snapshot(self) -> None:
-        if self.sync_busy or self.sign_out_busy or not self.save():
+        if self.sync_busy or self.test_busy or self.sign_out_busy or not self.save():
             return
         self.sync_busy = True
         website = self.config_data["website_url"]
@@ -240,21 +269,42 @@ class ConnectorApp(tk.Tk):
                     raise ValueError("MT5 MCP key and paired device credential are both required")
                 cloud = CloudClient(website)
                 result = asyncio.run(sync_read_only(cloud, read_broker_snapshot, endpoint, mcp_key, device_token))
-                self.sync_results.put((True, str(result.get("observedAt", "unknown time"))))
+                self.sync_results.put((True, str(result["observedAt"]), str(result["environment"])))
             except Exception as error:
-                self.sync_results.put((False, f"{type(error).__name__}: {str(error)[:200]}"))
+                self.sync_results.put((False, f"{type(error).__name__}: {str(error)[:200]}", ""))
 
         threading.Thread(target=work, daemon=True).start()
 
+    def _set_connected_environment(self, environment: str | None) -> None:
+        self.connected_environment = environment if environment in ("DEMO", "LIVE") else None
+        if self.connected_environment != "DEMO":
+            self.demo_arm.set(False)
+            self.demo_watch.set(False)
+        state = "normal" if self.connected_environment == "DEMO" else "disabled"
+        self.demo_arm_control.configure(state=state)
+        self.demo_watch_control.configure(state=state)
+        self.demo_run_button.configure(state=state)
+
     def _drain_sync_results(self) -> None:
         try:
-            success, detail = self.sync_results.get_nowait()
+            success, status, detail, environment = self.test_results.get_nowait()
+        except queue.Empty:
+            pass
+        else:
+            self.test_busy = False
+            self.test_button.configure(state="normal")
+            self._set_connected_environment(environment if success else None)
+            self.status.set(status)
+            self.message.set(detail)
+        try:
+            success, detail, environment = self.sync_results.get_nowait()
         except queue.Empty:
             pass
         else:
             self.sync_busy = False
-            self.status.set("Broker snapshot synced, read only" if success else "Snapshot sync failed; retry available")
-            self.message.set(f"Account snapshot uploaded at {detail}. No order tool was called." if success else detail)
+            self._set_connected_environment(environment if success else None)
+            self.status.set(f"{environment} account matched to website · read only" if success else "Snapshot sync failed; retry available")
+            self.message.set(f"Exact paired {environment} account matched at {detail}. No order tool was called. {'DEMO bot requires separate arming.' if environment == 'DEMO' else 'LIVE automatic trading is disabled in this build.'}" if success else detail)
         try:
             success, detail = self.demo_results.get_nowait()
         except queue.Empty:
@@ -279,7 +329,7 @@ class ConnectorApp(tk.Tk):
         self.after(200, self._drain_sync_results)
 
     def run_demo_bot(self) -> None:
-        if self.demo_busy or self.sign_out_busy or not self.save():
+        if self.connected_environment != "DEMO" or self.demo_busy or self.test_busy or self.sign_out_busy or not self.save():
             return
         self.demo_busy = True
         self.next_demo_at = time.monotonic() + 900
@@ -327,11 +377,10 @@ class ConnectorApp(tk.Tk):
             return
         self.sync_enabled = False
         self.auto_sync_button.configure(text="Resume automatic sync")
-        self.demo_arm.set(False)
-        self.demo_watch.set(False)
+        self._set_connected_environment(None)
         if not self.save():
             return
-        if self.sync_busy or self.demo_busy:
+        if self.sync_busy or self.demo_busy or self.test_busy:
             self.status.set("Sign-out waiting · scheduled activity stopped")
             self.message.set("The current sync or demo bot cycle is still running. Wait for it to finish, then select Sign out and disconnect again.")
             return
