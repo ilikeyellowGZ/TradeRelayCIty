@@ -1,5 +1,21 @@
 # Validation report
 
+## Public user onboarding implementation — 19 November 2026
+
+The `feat/public-user-onboarding-clean` worktree contains public email-verified signup, password recovery, verified-user broker authorization, public setup screens, and a Windows connector rebuilt for `https://traderelaycity.service-heyywebb.workers.dev`. This is a source and local release check. The hosted URL still serves the previous read-only release; no public account deployment has been made.
+
+- `npm test`: 20 files and 102 tests passed, including real Better Auth SQLite signup/verification/reset flows and two-user broker isolation.
+- `connector/.venv/Scripts/python.exe -m unittest discover -s connector/tests -v`: 39 tests passed, including bundled website origin validation. A Windows asyncio transport cleanup warning appeared after a synthetic HTTP test; the suite exited successfully.
+- `npm run build`: Worker and client bundles succeeded. React Doctor reported no issues in changed React files.
+- `npm run db:migrate:local`: migrations through `0014_public_auth.sql` applied in the isolated worktree.
+- `connector/build-windows.ps1 -WebsiteUrl https://traderelaycity.service-heyywebb.workers.dev`: PyInstaller built a 24,530,234-byte executable and copied it to the public download. The package archive contains `assets/release-site.json`; its SHA-256 is `835e0d6b580f125b2738955bc4fb488ba77e7948d92d1196e9244ef182401ed2`.
+- Local production preview returned HTTP 200 for `/`, `/signup`, `/login`, `/verify-email`, `/forgot-password`, `/reset-password`, and the executable download. `/app` returned 503 because this isolated preview has no `APP_BASE_URL` or `BETTER_AUTH_SECRET` configured; that is the expected fail-closed response. The built `dist` contains no `.dev.vars`.
+- The configured hosted `/api/health` returned HTTP 200 with `BROKER_READ_ONLY` and `isLive:false` on this date.
+
+**Pending before public invitation:** Configure a verified `EMAIL_FROM` sender and `RESEND_API_KEY` in the selected Cloudflare environment; apply remote migration 0014; deploy the matching Worker, web assets, and connector; verify two fresh users' email delivery, pairing, isolation, revocation, and a connected demo MT5 snapshot. Browser visual inspection was unavailable because the computer-use browser host was unavailable. Automatic/live trading remains disabled.
+
+### Historical baseline
+
 Updated 7 November 2026. Local checks validate simulation and build boundaries only. No provider, remote Cloudflare, or broker credentials were used.
 
 ## Passed

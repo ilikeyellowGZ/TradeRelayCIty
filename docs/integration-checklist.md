@@ -1,13 +1,13 @@
 # MT5 integration audit and next work
 
-Updated 2026-11-18. The repository is an existing React/Vite frontend, Hono Cloudflare Worker, D1 database, Better Auth owner login, and Python Windows connector. Supabase files are historical; the active app does not use Supabase Auth or PostgreSQL. The overview, trade history, and original assistant still use explicitly labeled local simulation fixtures.
+Updated 2026-11-19. The repository is an existing React/Vite frontend, Hono Cloudflare Worker, D1 database, Better Auth website accounts, and Python Windows connector. Supabase files are historical; the active app does not use Supabase Auth or PostgreSQL. The overview, trade history, and original assistant still use explicitly labeled local simulation fixtures.
 
 | Capability | Status | Evidence or limit |
 |---|---|---|
-| Owner login and protected `/app` | Implemented, locally and staging tested | Remote temporary-account sign-in/sign-out and protected route verified; session expiry still unverified |
+| Public email-verified accounts and protected `/app` | Implemented, locally tested; deployment pending | Signup, verification, reset/session revocation, route allowlist, and verified-session gate passed automated tests; verified sender and remote email flow not configured |
 | Local simulation, deterministic HOLD provider, CSV backtest | Implemented, locally tested | No broker order path or performance claim |
 | MT5 native MCP discovery | Implemented, terminal verified | Official Python SDK discovered 107 tools; terminal broker connection was disconnected |
-| Device pairing, revocation, owner-scoped snapshot/status API | Implemented, locally tested | Migrations 0009–0011 applied locally and staging; remote seeded-code exchange verified; owner browser pairing creation, snapshot upload, and multi-user provisioning unverified |
+| Device pairing, revocation, user-scoped snapshot/status API | Implemented, locally tested | Two-user isolation and foreign-record 404 passed automated tests; remote fresh-user pairing and connected-broker upload unverified |
 | Windows connector snapshot collection and auto retry | Implemented, partially verified | SDK reads account and open-position tools; connector reports offline/error/pause states; margin/profit keys confirmed on disconnected terminal; connected FxPro values and nonempty position mapping unverified |
 | Broker Accounts/Positions pages | Implemented, browser checked with synthetic UI data | Balance, equity, MT5 floating P&L, used/free margin, and stale/empty states; no actual broker snapshot yet |
 | MT5 snapshot question assistant | Implemented, locally tested | Deterministic read-only balance, margin, positions and P&L answers with source/time; no model provider called |
