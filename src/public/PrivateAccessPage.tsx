@@ -5,11 +5,11 @@ import { PublicBrand } from './PublicBrand'
 
 export function AccessFrame({ children }: { children: ReactNode }) {
   return <div className="public-site access-page">
-    <aside className="access-art" aria-label="TradeRelayCity private workspace">
+    <aside className="access-art" aria-label="TradeRelayCity workspace">
       <div className="access-art-top"><PublicBrand /></div>
-      <div className="access-editorial"><p className="public-kicker">YOUR PRIVATE WORKSPACE</p><h2>A clear view.<br />A considered next move.</h2><p>Review decisions. Keep your risk visible.</p></div>
+      <div className="access-editorial"><p className="public-kicker">YOUR TRADING WORKSPACE</p><h2>A clear view.<br />A considered next move.</h2><p>Review decisions. Keep your risk visible.</p></div>
     </aside>
-    <main className="access-main"><a className="access-back" href="/"><ArrowLeft aria-hidden="true" size={21} /> Back to home</a><div className="access-content">{children}</div><p className="access-footer">Private access. No public sign-up.</p></main>
+    <main className="access-main"><a className="access-back" href="/"><ArrowLeft aria-hidden="true" size={21} /> Back to home</a><div className="access-content">{children}</div><p className="access-footer">Your account. Your workspace.</p></main>
   </div>
 }
 
@@ -42,7 +42,7 @@ export function PrivateAccessPage() {
 
   return <AccessFrame>
     <PublicBrand />
-    <p className="public-kicker access-kicker">PRIVATE OWNER ACCESS</p>
+    <p className="public-kicker access-kicker">YOUR WORKSPACE</p>
     <h1>Welcome back.</h1>
     <p className="access-description">Sign in to your TradeRelayCity workspace.</p>
     <form className="access-form" onSubmit={(event) => void submit(event)} noValidate>
@@ -53,5 +53,7 @@ export function PrivateAccessPage() {
       {error && <p className="access-error" role="alert">{error}</p>}
       <button className="public-button access-submit" type="submit" disabled={busy}>{busy ? 'Signing in…' : 'Sign in'} <ArrowRight aria-hidden="true" size={24} /></button>
     </form>
+    <a className="access-recovery" href="/forgot-password">Forgot your password?</a>
+    <p className="access-next">New to TradeRelayCity? <a href="/signup">Create an account</a></p>
   </AccessFrame>
 }

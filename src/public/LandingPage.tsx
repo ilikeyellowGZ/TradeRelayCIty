@@ -20,11 +20,11 @@ export function LandingPage() {
         <main>
           <section className="landing-hero public-gutter" id="workspace" aria-labelledby="landing-title">
             <div className="landing-hero-copy">
-              <p className="public-kicker">YOUR PRIVATE TRADING WORKSPACE</p>
+              <p className="public-kicker">YOUR TRADING WORKSPACE</p>
               <h1 id="landing-title">Your trading.<br /><span>A clearer view.</span></h1>
               <p className="landing-lead">Designed for forex and cryptocurrency markets. Bring your MT5 account context, trading decisions and history into one considered workspace.</p>
-              <div className="landing-actions"><a className="public-button public-button--large" href="/login">Sign in to your workspace <ArrowRight aria-hidden="true" size={22} /></a><a className="public-button public-button--secondary public-button--large" href="/downloads/TradeRelayCity-Connector-Windows.exe" download="TradeRelayCity-Connector-Windows.exe"><Download aria-hidden="true" size={20} />Download app for Windows</a><a className="public-text-link" href="#how-it-works">Explore the workflow</a></div>
-              <p className="landing-access-note">Private owner access · No public sign-up</p>
+              <div className="landing-actions"><a className="public-button public-button--large" href="/signup">Create your account <ArrowRight aria-hidden="true" size={22} /></a><a className="public-button public-button--secondary public-button--large" href="/downloads/TradeRelayCity-Connector-Windows.exe" download="TradeRelayCity-Connector-Windows.exe"><Download aria-hidden="true" size={20} />Download app for Windows</a><a className="public-text-link" href="#how-it-works">Explore the workflow</a></div>
+              <p className="landing-access-note">Sign up, verify your email, then pair your Windows connector.</p>
               <p className="landing-download-note">Connector preview: pair your device and sync read-only MT5 snapshots. Trading is disabled. Windows may block this unsigned preview.</p>
             </div>
             <div className="landing-art">
@@ -43,8 +43,8 @@ export function LandingPage() {
         </main>
       </div>
 
-      <section className="landing-closing public-gutter"><h2>Your account. Your limits. Your call.</h2><a href="/login">Open your workspace <ArrowRight aria-hidden="true" size={24} /></a></section>
-      <footer className="landing-footer public-gutter"><PublicBrand /><span>Private access</span><a href="/login">Sign in</a><small>Trading involves risk.</small></footer>
+      <section className="landing-closing public-gutter"><h2>Your account. Your limits. Your call.</h2><a href="/signup">Create your workspace <ArrowRight aria-hidden="true" size={24} /></a></section>
+      <footer className="landing-footer public-gutter"><PublicBrand /><span>Personal workspace</span><a href="/login">Sign in</a><small>Trading involves risk.</small></footer>
     </div>
   )
 }

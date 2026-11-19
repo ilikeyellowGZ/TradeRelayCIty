@@ -1,13 +1,16 @@
 import { lazy, Suspense, useEffect, useState } from 'react'
 import { LandingPage } from './public/LandingPage'
 import { PrivateAccessPage } from './public/PrivateAccessPage'
+import { SignUpPage } from './public/SignUpPage'
+import { VerifyEmailPage } from './public/VerifyEmailPage'
+import { ResetPasswordPage } from './public/ResetPasswordPage'
 import { authClient } from './auth-client'
 
 const Workspace = lazy(() => import('./App'))
 
 function RedirectToLogin() {
   useEffect(() => { window.location.replace('/login') }, [])
-  return <main className="route-loading" role="status">Opening private access…</main>
+  return <main className="route-loading" role="status">Opening sign in…</main>
 }
 
 function ProtectedWorkspace() {
@@ -21,7 +24,7 @@ function ProtectedWorkspace() {
   }, [])
   useEffect(() => { if (status === 'signed-out') window.location.replace('/login') }, [status])
   if (status === 'error') return <main className="route-loading" role="alert">Could not check your session. <a href="/login">Return to sign in</a></main>
-  if (status !== 'ready') return <main className="route-loading" role="status">Opening private access…</main>
+  if (status !== 'ready') return <main className="route-loading" role="status">Opening workspace…</main>
   return <Suspense fallback={<main className="route-loading" role="status">Loading workspace…</main>}><Workspace /></Suspense>
 }
 
@@ -31,6 +34,10 @@ export default function EntryRouter() {
 
   if (path === '/') return <LandingPage />
   if (path === '/login') return <PrivateAccessPage />
+  if (path === '/signup') return <SignUpPage />
+  if (path === '/verify-email') return <VerifyEmailPage />
+  if (path === '/forgot-password') return <ResetPasswordPage />
+  if (path === '/reset-password') return <ResetPasswordPage reset />
   if (path.startsWith('/login/')) return <RedirectToLogin />
   if (path === '/app' || path.startsWith('/app/')) return <ProtectedWorkspace />
   if (path === '/enroll') return <RedirectToLogin />

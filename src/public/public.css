@@ -111,6 +111,10 @@
 .recovery-guidance p { margin: 8px 0 0; }
 .access-footer { align-self: flex-end; margin: 0; color: #d5d5da; font-size: 14px; }
 .access-code-input { padding-right: 18px; font-family: "JetBrains Mono", monospace; letter-spacing: .35em; }
+.access-hint { margin: -12px 0 0; color: var(--public-muted); font-size: 14px; }
+.access-next a, .access-confirmation a { color: #a9c2ff; text-underline-offset: 5px; }
+.access-confirmation { margin-top: 32px; padding: 20px 24px; border: 1px solid rgb(217 201 169 / 35%); border-radius: 12px; color: var(--public-ink); background: rgb(217 201 169 / 8%); line-height: 1.6; }
+.access-confirmation p { margin: 8px 0 12px; color: var(--public-muted); }
 .route-loading { display: grid; min-height: 100dvh; place-items: center; padding: 24px; color: #f7f5f0; background: #0c0d11; font-family: "Inter Variable", Inter, sans-serif; }
 
 @media (max-width: 1100px) {

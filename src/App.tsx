@@ -38,7 +38,7 @@ const activities = [
   { title: 'Strategy workspace opened', detail: 'No broker connection · 42 min ago', icon: Bot, tone: 'red' },
 ]
 
-function Sidebar({ active, onNavigate, open, onClose, isMobile }: { active: string; onNavigate: (name: string) => void; open: boolean; onClose: () => void; isMobile: boolean }) {
+function Sidebar({ active, onNavigate, open, onClose, isMobile, displayName }: { active: string; onNavigate: (name: string) => void; open: boolean; onClose: () => void; isMobile: boolean; displayName: string }) {
   const reduceMotion = useReducedMotion()
   const [moreOpen, setMoreOpen] = useState(false)
   const moreRef = useRef<HTMLDivElement>(null)
@@ -115,7 +115,7 @@ function Sidebar({ active, onNavigate, open, onClose, isMobile }: { active: stri
           <span className="stadium-rule" />
         </div>
         <div className="sidebar-user">
-          <div className="avatar">JD</div><div className="user-copy"><strong>Jordan Davis</strong><span>Personal workspace</span></div>
+          <div className="avatar">{displayName.trim().slice(0, 2).toUpperCase()}</div><div className="user-copy"><strong>{displayName}</strong><span>Personal workspace</span></div>
           <button className="user-menu icon-button" type="button" disabled aria-label="Profile menu unavailable in preview" title="Profile actions need the application backend"><MoreHorizontal size={18} /></button>
         </div>
       </aside>
@@ -166,6 +166,7 @@ function App() {
   const [account, setAccount] = useState<SimAccount | null>(null)
   const [apiError, setApiError] = useState('')
   const [signOutError, setSignOutError] = useState('')
+  const [displayName, setDisplayName] = useState('Your workspace')
   const [aiMessage, setAiMessage] = useState('Mock AI is idle; live AI is not configured.')
   const [aiBusy, setAiBusy] = useState(false)
   const [assistantSource, setAssistantSource] = useState<'simulation' | 'broker'>('simulation')
@@ -178,6 +179,14 @@ function App() {
     : connectorDevices === null
       ? { tone: 'muted' as const, label: 'Checking MT5…', detail: 'Checking your paired Windows connector.' }
       : getConnectionStatus(connectorDevices, statusNow)
+
+  useEffect(() => {
+    let mounted = true
+    void authClient.getSession().then((result) => {
+      if (mounted && result.data?.user) setDisplayName(result.data.user.name || result.data.user.email)
+    })
+    return () => { mounted = false }
+  }, [])
 
   useEffect(() => {
     const media = window.matchMedia('(max-width: 1023px)')
@@ -306,7 +315,7 @@ function App() {
   return (
     <LazyMotion features={domAnimation}>
     <div className="app-shell" ref={dashboardRef}>
-      <Sidebar active={active} onNavigate={setActive} open={drawerOpen} isMobile={isMobile} onClose={() => { setDrawerOpen(false); if (isMobile) menuButtonRef.current?.focus() }} />
+      <Sidebar active={active} onNavigate={setActive} open={drawerOpen} isMobile={isMobile} displayName={displayName} onClose={() => { setDrawerOpen(false); if (isMobile) menuButtonRef.current?.focus() }} />
       <main className="main-area">
         <header className="topbar">
           <button ref={menuButtonRef} className="mobile-menu icon-button" type="button" onClick={() => setDrawerOpen(true)} aria-label="Open navigation" aria-expanded={drawerOpen}><Menu size={21} /></button>
