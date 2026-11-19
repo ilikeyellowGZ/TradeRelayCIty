@@ -11,7 +11,7 @@ The shared Cloudflare Worker, D1 database, and AI provider keys are operated by 
 
 ## Scope and present state
 
-This design uses the existing React/Vite website, Hono Worker, Better Auth, D1 migrations, Python connector, strategy specification, risk precheck, and demo execution state machine. The current deployed experience is owner-only and read-only: public sign-up is disabled, broker routes require the one configured owner, connector code blocks order tools, the demo executor is not connected to production, and `LIVE_ENTRY_EXECUTION_ENABLED` is false. Existing simulation history is synthetic and is not broker trade history. Implementation must not label these capabilities as available before they are built and verified.
+This design uses the existing React/Vite website, Hono Worker, Better Auth, D1 migrations, Python connector, strategy specification, risk precheck, and demo execution state machine. The deployed staging Worker now supports public username/password signup, recovery codes, per-user pairing, and read-only MT5 snapshots. A separately armed local demo bot exists, but a real broker demo fill has not been verified. Live-account order entry remains disabled. Existing simulation history is synthetic and is not broker trade history.
 
 The first supported automatic strategy is `docs/strategy.md` version 0.1.0: closed M15 signals with H1 context and the documented sweep, displacement, fair-value-gap, stop, target, and expiry rules. Its current CSV backtest does not establish profitability or broker execution readiness. Exact broker symbol and contract data must be checked per account; a symbol is never enabled merely because its display name resembles `EURUSD` or `BTCUSD`.
 
@@ -25,8 +25,8 @@ The first supported automatic strategy is `docs/strategy.md` version 0.1.0: clos
 
 ## First-run experience
 
-1. The landing page offers **Create account**, **Sign in**, and **Download for Windows**. After sign-up, the user verifies email and signs in.
-2. A website setup guide checks that the user installed MT5, signed in to their broker account, and enabled MT5's local terminal MCP endpoint. It links to the matching connector download and explains where to copy the endpoint and key. The release connector starts with the production website origin already filled in; it never defaults to the existing staging hostname.
+1. The landing page offers **Create account**, **Sign in**, and **Download for Windows**. After sign-up, the user saves eight one-time recovery codes and signs in. No email verification is used.
+2. A website setup guide checks that the user installed MT5, signed in to their broker account, and enabled MT5's local terminal MCP endpoint. It links to the matching connector download and explains where to copy the endpoint and key. The release connector starts with the exact website origin selected at build time, currently `https://traderelaycity.service-heyywebb.workers.dev`.
 3. The connector saves the MT5 key in Windows Credential Manager, runs a read-only connection check, and shows the detected broker, server, login, account type, and currency. It reports errors without revealing the key.
 4. The user creates a pairing code on the website, pastes it into the connector, and syncs a snapshot. The website confirms the device and exact broker identity, shows last observation time, and distinguishes demo from live accounts.
 5. A readiness page lists the specific unmet conditions for automatic trading. New accounts start paused. The user sets risk limits and validates the strategy and order flow on their own demo account. To use a live account, they re-pair the connector to that account, pass its separate readiness checks, and explicitly enable automatic trading on both website and connector. The website offers a pause control that immediately prevents new server commands; the connector checks that state again before submission.
@@ -48,7 +48,7 @@ Automatic trading is disabled until a connected demo account has passed exact to
 | Component | Responsibility | Depends on |
 |---|---|---|
 | Public and private web UI | Sign-up, setup, account view, limits, readiness, pause, AI questions, trade history | Same-origin Worker API |
-| Auth and user service | Sessions, verification, reset, role checks, abuse limits | Better Auth, D1, transactional email sender |
+| Auth and user service | Sessions, recovery codes, reset, role checks, abuse limits | Better Auth, D1 |
 | Broker API | User-scoped device pairing, snapshots, account reads, settings, command ledger, history | Auth, D1, device token validation |
 | AI service | Bounded question classification and strategy opinion, quota and cost records | Server-side provider credentials; no broker tools |
 | Windows connector | MT5 discovery, strategy evaluation, local risk gate, journal, order submission and reconciliation | User's MT5 terminal, Worker HTTPS API, Windows Credential Manager |
@@ -62,7 +62,7 @@ Automated verification covers public auth flows and abuse limits; cross-user acc
 
 ## Delivery sequence
 
-1. Public account lifecycle, email delivery, per-user data ownership, and cross-user verification.
+1. Public account lifecycle with recovery codes, per-user data ownership, and cross-user verification.
 2. Recipient setup guide and connector release defaults/versioning; multi-user pairing and read-only broker data on the hosted URL.
 3. Broker history, exact symbol/contract reads, strategy inputs, AI decision routing, and user risk settings.
 4. Demo command ledger, connector order adapter, journal recovery, reconciliation, and end-to-end demo validation.

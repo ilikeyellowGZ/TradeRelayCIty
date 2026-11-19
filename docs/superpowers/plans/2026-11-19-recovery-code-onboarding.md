@@ -15,4 +15,4 @@ Date: 19 November 2026. User decision: public signup uses username/password and 
 - Apply `0015_account_recovery.sql` after earlier migrations; keep `BETTER_AUTH_SECRET` stable because it keys code hashes.
 - Build the connector with the exact hosted `-WebsiteUrl`, verify source, public, and built-asset SHA-256 values match, and confirm no secret files enter `dist`.
 - On a disposable hosted environment, register two users, save codes, sign in, pair separate devices, verify isolation, reset and rotate codes, revoke a device, and test a connected demo MT5 snapshot before inviting recipients.
-- Keep order execution disabled. Automatic trading and live order placement are later delivery phases.
+- Keep live-account order execution disabled. A separately armed local demo bot was added in parallel; its real broker fill and reconciliation remain unverified. Automatic live trading is a later delivery phase.

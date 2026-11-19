@@ -1,6 +1,6 @@
 # Set up your TradeRelayCity workspace
 
-TradeRelayCity uses one shared website. Each person creates their own account and pairs their own Windows connector to their own MT5 terminal. The website shows read-only MT5 snapshots. A separate local EURUSD demo bot can submit demo orders only when explicitly armed and its safety checks pass; live-account orders are disabled.
+TradeRelayCity uses the shared website at [traderelaycity.service-heyywebb.workers.dev](https://traderelaycity.service-heyywebb.workers.dev). Each person creates their own account and pairs their own Windows connector to their own MT5 terminal. The website shows read-only MT5 snapshots. A separate local EURUSD demo bot can submit demo orders only when explicitly armed and its safety checks pass; live-account orders are disabled.
 
 1. Open the TradeRelayCity website and choose **Create your account**. Enter your name, username, and a password with at least 12 characters. No email address is needed.
 2. Save the eight recovery codes shown after signup in a password manager or another private place. They are shown only once. A code can reset your password if you forget it. If you lose both your password and codes, the account cannot be recovered automatically. Sign in on the website after saving the codes.
