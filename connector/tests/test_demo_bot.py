@@ -12,7 +12,7 @@ from traderelaycity_connector.demo_bot import DemoBotBlocked, McpDemoBroker, _ba
 from traderelaycity_connector.demo_execution import DemoCommand, ReconciliationEvidence
 from traderelaycity_connector.journal import Journal
 from traderelaycity_connector.risk import AccountRisk, Candidate, ContractSpec
-from traderelaycity_connector.strategy import Candle, CandidateSignal, Evaluation
+from traderelaycity_connector.strategy import Candle, CandidateSignal, Evaluation, StrategyConfig
 
 
 class FakeMcpBroker(McpDemoBroker):
@@ -60,6 +60,13 @@ class FakeMcpBroker(McpDemoBroker):
 
 
 class DemoBotTests(unittest.TestCase):
+    def test_cloud_strategy_is_bounded_and_demo_only(self):
+        valid = {"type": "sweep_fvg_v1", "symbol": "EURUSD", "sweepLookback": 12, "displacementAtr": 1.5, "minGapAtr": 0.12, "rewardRisk": 2.5}
+        self.assertEqual(StrategyConfig.from_cloud(valid), StrategyConfig(12, 1.5, 0.12, 2.5))
+        for change in ({"symbol": "USDJPY"}, {"rewardRisk": 100}, {"sweepLookback": True}, {"minGapAtr": float('nan')}):
+            with self.assertRaises(ValueError):
+                StrategyConfig.from_cloud({**valid, **change})
+
     def setUp(self):
         self.broker = FakeMcpBroker()
         self.signal = CandidateSignal("BUY", "EURUSD", 1.1, 1.095, 1.11, datetime.now(timezone.utc), 8, "fixture")
@@ -177,6 +184,9 @@ class DemoBotTests(unittest.TestCase):
         class Cloud:
             def upload_snapshot(self, _token, _snapshot):
                 return {"environment": "DEMO", "accountId": "account-1"}
+
+            def active_demo_strategy(self, _token, _account_id):
+                return {"id": "strategy-1", "config": {"type": "sweep_fvg_v1", "symbol": "EURUSD", "sweepLookback": 8, "displacementAtr": 1.2, "minGapAtr": 0.1, "rewardRisk": 2}}
 
             def request_demo_opinion(self, _token, _request):
                 return {"approved": True, "decision": "BUY", "symbol": "EURUSD", "expiresAt": (datetime.now(timezone.utc) + timedelta(minutes=1)).isoformat(), "decisionId": "ai-1"}

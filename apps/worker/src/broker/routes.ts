@@ -5,6 +5,8 @@ import { answerBrokerQuestion, requiresUnavailableBrokerData } from './assistant
 import { brokerAiConfig, intentQuestion, requestBrokerIntent, type BrokerAiEnv } from './ai-intent'
 import { requestRealProvider } from '../ai/real-providers'
 import { normalizeDemoDecisionRequest } from './demo-decision'
+import { normalizeDemoStrategy } from './strategy'
+import { draftDemoStrategy } from './strategy-draft'
 
 type Bindings = { DB: D1Database; APP_BASE_URL?: string; BETTER_AUTH_SECRET?: string } & BrokerAiEnv
 type Variables = { ownerId: string; deviceId: string; deviceOwnerId: string }
@@ -72,6 +74,62 @@ ownerBrokerRoutes.get('/accounts', async (c) => {
   }))
   c.header('cache-control', 'no-store')
   return c.json({ accounts })
+})
+
+ownerBrokerRoutes.get('/accounts/:id/strategies', async (c) => {
+  const account = await c.env.DB.prepare("SELECT a.id FROM broker_accounts a INNER JOIN connector_devices d ON d.id=a.device_id AND d.revoked_at IS NULL WHERE a.id=? AND a.owner_id=? AND a.environment='DEMO'").bind(c.req.param('id'), c.get('ownerId')).first()
+  if (!account) return c.json({ error: 'Paired DEMO account not found.' }, 404)
+  const { results } = await c.env.DB.prepare('SELECT id,name,config_json AS configJson,active,created_at AS createdAt,updated_at AS updatedAt FROM broker_demo_strategies WHERE account_id=? AND owner_id=? ORDER BY updated_at DESC LIMIT 20').bind(c.req.param('id'), c.get('ownerId')).all<{ id: string; name: string; configJson: string; active: number; createdAt: number; updatedAt: number }>()
+  c.header('cache-control', 'no-store')
+  return c.json({ strategies: results.map(({ configJson, active, ...row }) => ({ ...row, config: JSON.parse(configJson), active: active === 1 })) })
+})
+
+ownerBrokerRoutes.post('/accounts/:id/strategies/draft', async (c) => {
+  const raw = await c.req.text()
+  if (raw.length > 1_500) return c.json({ error: 'Description too long.' }, 413)
+  let body: { description?: unknown }
+  try { body = JSON.parse(raw) } catch { return c.json({ error: 'Invalid JSON.' }, 400) }
+  if (typeof body.description !== 'string' || body.description.trim().length < 20 || body.description.length > 1_000) return c.json({ error: 'Describe the strategy in 20 to 1000 characters.' }, 400)
+  const account = await c.env.DB.prepare("SELECT a.id FROM broker_accounts a INNER JOIN connector_devices d ON d.id=a.device_id AND d.revoked_at IS NULL WHERE a.id=? AND a.owner_id=? AND a.environment='DEMO'").bind(c.req.param('id'), c.get('ownerId')).first()
+  if (!account) return c.json({ error: 'Paired DEMO account not found.' }, 404)
+  const day = new Date().toISOString().slice(0, 10)
+  const reserved = await c.env.DB.prepare('INSERT INTO broker_ai_daily_usage(owner_id,day_utc,request_count) VALUES(?,?,1) ON CONFLICT(owner_id,day_utc) DO UPDATE SET request_count=request_count+1 WHERE request_count<30 RETURNING request_count').bind(c.get('ownerId'), day).first()
+  if (!reserved) return c.json({ error: 'Daily AI limit reached.' }, 429)
+  try { return c.json(await draftDemoStrategy(c.env as Parameters<typeof draftDemoStrategy>[0], body.description.trim())) }
+  catch (error) { return c.json({ error: error instanceof Error ? error.message : 'AI draft unavailable.' }, 502) }
+})
+
+ownerBrokerRoutes.post('/accounts/:id/strategies', async (c) => {
+  const raw = await c.req.text()
+  if (raw.length > 2_048) return c.json({ error: 'Strategy request too large.' }, 413)
+  let body: { name?: unknown; config?: unknown }
+  try { body = JSON.parse(raw) } catch { return c.json({ error: 'Invalid JSON.' }, 400) }
+  if (typeof body.name !== 'string' || !/^[\w .'-]{3,60}$/.test(body.name.trim())) return c.json({ error: 'Name must be 3 to 60 characters.' }, 400)
+  let config: ReturnType<typeof normalizeDemoStrategy>
+  try { config = normalizeDemoStrategy(body.config) } catch (error) { return c.json({ error: error instanceof Error ? error.message : 'Invalid strategy.' }, 400) }
+  const account = await c.env.DB.prepare("SELECT a.id FROM broker_accounts a INNER JOIN connector_devices d ON d.id=a.device_id AND d.revoked_at IS NULL WHERE a.id=? AND a.owner_id=? AND a.environment='DEMO'").bind(c.req.param('id'), c.get('ownerId')).first()
+  if (!account) return c.json({ error: 'Paired DEMO account not found.' }, 404)
+  const count = await c.env.DB.prepare('SELECT COUNT(*) AS total FROM broker_demo_strategies WHERE account_id=?').bind(c.req.param('id')).first<{ total: number }>()
+  if ((count?.total ?? 0) >= 20) return c.json({ error: 'Strategy limit reached.' }, 409)
+  const id = crypto.randomUUID(), now = Date.now()
+  await c.env.DB.prepare('INSERT INTO broker_demo_strategies(id,owner_id,account_id,name,config_json,active,created_at,updated_at) VALUES(?,?,?,?,?,0,?,?)').bind(id, c.get('ownerId'), c.req.param('id'), body.name.trim(), JSON.stringify(config), now, now).run()
+  c.header('cache-control', 'no-store')
+  return c.json({ id, name: body.name.trim(), config, active: false }, 201)
+})
+
+ownerBrokerRoutes.post('/accounts/:id/strategies/:strategyId/activate', async (c) => {
+  const strategy = await c.env.DB.prepare("SELECT s.id FROM broker_demo_strategies s INNER JOIN broker_accounts a ON a.id=s.account_id INNER JOIN connector_devices d ON d.id=a.device_id AND d.revoked_at IS NULL WHERE s.id=? AND s.account_id=? AND s.owner_id=? AND a.environment='DEMO'").bind(c.req.param('strategyId'), c.req.param('id'), c.get('ownerId')).first()
+  if (!strategy) return c.json({ error: 'DEMO strategy not found.' }, 404)
+  await c.env.DB.prepare('UPDATE broker_demo_strategies SET active=0,updated_at=? WHERE account_id=? AND owner_id=? AND active=1').bind(Date.now(), c.req.param('id'), c.get('ownerId')).run()
+  await c.env.DB.prepare('UPDATE broker_demo_strategies SET active=1,updated_at=? WHERE id=? AND account_id=? AND owner_id=?').bind(Date.now(), c.req.param('strategyId'), c.req.param('id'), c.get('ownerId')).run()
+  c.header('cache-control', 'no-store')
+  return c.json({ activeStrategyId: c.req.param('strategyId') })
+})
+
+ownerBrokerRoutes.post('/accounts/:id/strategies/deactivate', async (c) => {
+  await c.env.DB.prepare('UPDATE broker_demo_strategies SET active=0,updated_at=? WHERE account_id=? AND owner_id=?').bind(Date.now(), c.req.param('id'), c.get('ownerId')).run()
+  c.header('cache-control', 'no-store')
+  return c.json({ activeStrategyId: null })
 })
 
 ownerBrokerRoutes.get('/ai-capabilities', (c) => {
@@ -192,6 +250,24 @@ connectorBrokerRoutes.use('/status', async (c, next) => {
   await next()
 })
 
+connectorBrokerRoutes.use('/sign-out', async (c, next) => {
+  const token = /^Bearer ([A-Za-z0-9_-]{43})$/.exec(c.req.header('authorization') ?? '')?.[1]
+  if (!token) return c.json({ error: 'Device credential required.' }, 401)
+  const digest = await digestSecret(token)
+  const device = await c.env.DB.prepare('SELECT id,owner_id AS ownerId FROM connector_devices WHERE token_digest=? AND revoked_at IS NULL').bind(digest).first<{ id: string; ownerId: string }>()
+  if (!device) return c.json({ error: 'Device credential invalid or revoked.' }, 401)
+  c.set('deviceId', device.id)
+  c.set('deviceOwnerId', device.ownerId)
+  await next()
+})
+
+connectorBrokerRoutes.post('/sign-out', async (c) => {
+  const revoked = await c.env.DB.prepare('UPDATE connector_devices SET revoked_at=? WHERE id=? AND owner_id=? AND revoked_at IS NULL RETURNING id').bind(Date.now(), c.get('deviceId'), c.get('deviceOwnerId')).first()
+  if (!revoked) return c.json({ error: 'Device credential invalid or revoked.' }, 401)
+  c.header('cache-control', 'no-store')
+  return c.json({ signedOut: true })
+})
+
 connectorBrokerRoutes.use('/demo/*', async (c, next) => {
   const token = /^Bearer ([A-Za-z0-9_-]{43})$/.exec(c.req.header('authorization') ?? '')?.[1]
   if (!token) return c.json({ error: 'Device credential required.' }, 401)
@@ -203,6 +279,16 @@ connectorBrokerRoutes.use('/demo/*', async (c, next) => {
   await next()
 })
 
+connectorBrokerRoutes.get('/demo/strategy', async (c) => {
+  const accountId = c.req.query('accountId')
+  if (!accountId || accountId.length > 100) return c.json({ error: 'Account ID required.' }, 400)
+  const account = await c.env.DB.prepare("SELECT id FROM broker_accounts WHERE id=? AND owner_id=? AND device_id=? AND environment='DEMO'").bind(accountId, c.get('deviceOwnerId'), c.get('deviceId')).first()
+  if (!account) return c.json({ error: 'Bound DEMO account required.' }, 403)
+  const strategy = await c.env.DB.prepare('SELECT id,name,config_json AS configJson FROM broker_demo_strategies WHERE account_id=? AND owner_id=? AND active=1').bind(accountId, c.get('deviceOwnerId')).first<{ id: string; name: string; configJson: string }>()
+  c.header('cache-control', 'no-store')
+  return c.json({ strategy: strategy ? { id: strategy.id, name: strategy.name, config: JSON.parse(strategy.configJson) } : null })
+})
+
 connectorBrokerRoutes.post('/demo/opinion', async (c) => {
   const raw = await c.req.text()
   if (raw.length > 16_384) return c.json({ error: 'Decision request too large.' }, 413)
@@ -211,6 +297,8 @@ connectorBrokerRoutes.post('/demo/opinion', async (c) => {
   const now = Date.now()
   const account = await c.env.DB.prepare('SELECT a.id,s.observed_at AS observedAt FROM broker_accounts a INNER JOIN broker_snapshots s ON s.account_id=a.id WHERE a.id=? AND a.owner_id=? AND a.device_id=? AND a.environment=?').bind(input.accountId, c.get('deviceOwnerId'), c.get('deviceId'), 'DEMO').first<{ id: string; observedAt: string }>()
   if (!account) return c.json({ error: 'Bound demo account snapshot required.' }, 403)
+  const activeStrategy = await c.env.DB.prepare('SELECT id,config_json AS configJson FROM broker_demo_strategies WHERE id=? AND account_id=? AND owner_id=? AND active=1').bind(input.strategyId, account.id, c.get('deviceOwnerId')).first<{ id: string; configJson: string }>()
+  if (!activeStrategy) return c.json({ error: 'Active DEMO strategy changed. Run a new bot cycle.' }, 409)
   const snapshotAge = now - Date.parse(account.observedAt)
   if (!Number.isFinite(snapshotAge) || snapshotAge < 0 || snapshotAge > 30_000 || input.snapshotId !== account.observedAt || now - Date.parse(input.setupTime) > 8 * 15 * 60_000 || Date.parse(input.setupTime) > now) return c.json({ error: 'Demo market or account snapshot is stale.' }, 409)
   if (c.env.AI_PROVIDER !== 'groq' && c.env.AI_PROVIDER !== 'gemini') return c.json({ error: 'Demo AI opinion unavailable.' }, 503)
@@ -222,7 +310,7 @@ connectorBrokerRoutes.post('/demo/opinion', async (c) => {
       snapshotId: input.snapshotId,
       candidate: input.candidate,
       marketSnapshot: input.marketSnapshot,
-      historicalSummary: { strategyVersion: '0.1.0', setupTime: input.setupTime },
+      historicalSummary: { strategyVersion: '0.1.0', strategyId: activeStrategy.id, strategy: JSON.parse(activeStrategy.configJson), setupTime: input.setupTime },
     })
     const approved = result.opinion.decision === input.candidate.direction
     const decisionId = crypto.randomUUID()

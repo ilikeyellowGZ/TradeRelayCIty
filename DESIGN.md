@@ -50,6 +50,8 @@ Below 1024px the floating navigation becomes a fixed, scrollable drawer with 16p
 - Current, hover, focus-visible, menu-open and theme states are distinct. Mode, connector health and strategy state never share one indicator.
 - Buttons expose `aria-current`; menu and theme controls are keyboard operable and clearly named.
 - The context row includes a labeled sign-out control; sign-out failures stay visible and do not imply the session ended.
+- The desktop header shows a text-labeled Sign out button. On mobile, the same action is available in the navigation drawer with a visible label.
+- The Windows connector has a Sign out and disconnect control. It stops scheduled sync and demo runs, revokes the paired device on the website, and clears its local device and MT5 credentials. If revocation cannot be confirmed, local activity stays stopped and the user can retry or revoke the device on the website.
 - The MT5 MCP status is separate from simulation state and links to Accounts. It names unpaired, recently synced, offline, read error, paused, stale, checking, and unavailable states in text as well as color. A sync older than 45 seconds is unverified because the Windows connector normally syncs every 15 seconds; an old snapshot must not imply a current connection.
 
 ### Theme system
@@ -62,6 +64,7 @@ Below 1024px the floating navigation becomes a fixed, scrollable drawer with 16p
 - Charts label period, currency and units and provide an accessible text alternative.
 
 ### Forms, tables, assistant and dialogs
+- The Trading destination uses the shared navy panel, cream action, labeled inputs, and account selector for a DEMO-only strategy editor. AI drafts populate the same bounded fields; saved drafts need a separate Activate action. Active and draft states are shown in text, and connector arming remains local.
 - Use shared themed surfaces, visible validation, 56px table rows, aligned columns, 14px content, compact pill filters and readable assistant message widths.
 - On phones, the assistant workspace uses 16px outer corners in place of the desktop card radius.
 - The assistant workspace grows with its conversations and messages so the page scrolls through the full content. The mobile conversation list has no separate scroll area.

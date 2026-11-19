@@ -2,6 +2,7 @@ import type { AiCandidate } from '../ai/provider'
 
 export type DemoDecisionRequest = {
   accountId: string
+  strategyId: string
   snapshotId: string
   setupTime: string
   candidate: AiCandidate
@@ -14,6 +15,7 @@ export function normalizeDemoDecisionRequest(value: unknown): DemoDecisionReques
   const candidate = item.candidate as Record<string, unknown> | null
   const market = item.marketSnapshot as Record<string, unknown> | null
   if (!candidate || !market || typeof item.accountId !== 'string' || !/^[0-9a-f-]{36}$/.test(item.accountId) ||
+    typeof item.strategyId !== 'string' || !/^[0-9a-f-]{36}$/.test(item.strategyId) ||
     typeof item.snapshotId !== 'string' || item.snapshotId.length > 100 ||
     typeof item.setupTime !== 'string' || !Number.isFinite(Date.parse(item.setupTime)) ||
     candidate.symbol !== 'EURUSD' || !['BUY', 'SELL'].includes(String(candidate.direction)) ||

@@ -11,6 +11,12 @@ def pair_device(cloud, code: str, name: str, store) -> None:
     return None
 
 
+def sign_out_device(cloud, token: str, credential_names: tuple[str, ...], delete) -> None:
+    cloud.sign_out(token)
+    for name in credential_names:
+        delete(name)
+
+
 async def sync_read_only(cloud, read, endpoint: str, key: str, token: str) -> dict:
     try:
         snapshot = await read(endpoint, key)

@@ -14,11 +14,11 @@ from tkinter import messagebox, ttk
 from .mcp_adapter import inspect_mt5
 from .broker_snapshot import read_broker_snapshot
 from .cloud_client import CloudClient
-from .connector_flow import DEVICE_CREDENTIAL, pair_device, sync_read_only
+from .connector_flow import DEVICE_CREDENTIAL, pair_device, sign_out_device, sync_read_only
 from .demo_bot import run_demo_cycle
 from .journal import Journal
 from .instance_lock import InstanceAlreadyRunning, SingleInstanceLock
-from .secure_store import CredentialStoreError, read_secret, store_secret
+from .secure_store import CredentialStoreError, delete_secret, read_secret, store_secret
 from .release_site import release_website_url
 
 APP_DIR = Path(os.environ.get("LOCALAPPDATA", Path.home())) / "TradeRelayCity"
@@ -47,8 +47,8 @@ class ConnectorApp(tk.Tk):
         if icon.is_file():
             self.iconbitmap(default=str(icon))
         self.title("TradeRelayCity Connector")
-        self.geometry("600x805")
-        self.minsize(520, 805)
+        self.geometry("600x850")
+        self.minsize(520, 850)
         self.configure(bg="#f7f5f0")
         self.config_data = load_config()
         self.status = tk.StringVar(value="Offline · no account bound")
@@ -58,6 +58,8 @@ class ConnectorApp(tk.Tk):
         self.sync_results: queue.Queue[tuple[bool, str]] = queue.Queue()
         self.demo_results: queue.Queue[tuple[bool, str]] = queue.Queue()
         self.demo_busy = False
+        self.sign_out_busy = False
+        self.sign_out_results: queue.Queue[tuple[bool, str]] = queue.Queue()
         self.demo_arm = tk.BooleanVar(value=False)
         self.demo_watch = tk.BooleanVar(value=False)
         self.next_demo_at = 0.0
@@ -108,6 +110,8 @@ class ConnectorApp(tk.Tk):
         ttk.Button(cloud_row, text="Sync MT5 snapshot (read only)", command=self.sync_snapshot).pack(side="right")
         self.auto_sync_button = ttk.Button(outer, text="Pause automatic sync" if self.sync_enabled else "Resume automatic sync", command=self.toggle_auto_sync)
         self.auto_sync_button.pack(anchor="w", pady=(0, 10))
+        self.sign_out_button = ttk.Button(outer, text="Sign out and disconnect", command=self.sign_out)
+        self.sign_out_button.pack(anchor="w", pady=(0, 10))
         ttk.Separator(outer).pack(fill="x", pady=5)
         ttk.Checkbutton(outer, text="Arm EURUSD DEMO orders for this session (one per UTC day)", variable=self.demo_arm).pack(anchor="w", pady=(5, 3))
         ttk.Checkbutton(outer, text="Run the demo bot every 15 minutes while armed", variable=self.demo_watch).pack(anchor="w", pady=(0, 5))
@@ -163,7 +167,7 @@ class ConnectorApp(tk.Tk):
             self.message.set(f"{type(error).__name__}: {str(error)[:240]}")
 
     def sync_snapshot(self) -> None:
-        if self.sync_busy or not self.save():
+        if self.sync_busy or self.sign_out_busy or not self.save():
             return
         self.sync_busy = True
         website = self.config_data["website_url"]
@@ -201,10 +205,23 @@ class ConnectorApp(tk.Tk):
             self.demo_busy = False
             self.status.set("Demo bot cycle complete" if success else "Demo bot blocked")
             self.message.set(detail)
+        try:
+            success, detail = self.sign_out_results.get_nowait()
+        except queue.Empty:
+            pass
+        else:
+            self.sign_out_busy = False
+            self.sign_out_button.configure(state="normal")
+            if success:
+                self.secret.delete(0, tk.END)
+                self.status.set("Signed out · disconnected")
+            else:
+                self.status.set("Sign-out incomplete · local activity stopped")
+            self.message.set(detail)
         self.after(200, self._drain_sync_results)
 
     def run_demo_bot(self) -> None:
-        if self.demo_busy or not self.save():
+        if self.demo_busy or self.sign_out_busy or not self.save():
             return
         self.demo_busy = True
         self.next_demo_at = time.monotonic() + 900
@@ -230,6 +247,8 @@ class ConnectorApp(tk.Tk):
         threading.Thread(target=work, daemon=True).start()
 
     def toggle_auto_sync(self) -> None:
+        if self.sign_out_busy:
+            return
         self.sync_enabled = not self.sync_enabled
         self.auto_sync_button.configure(text="Pause automatic sync" if self.sync_enabled else "Resume automatic sync")
         self.save()
@@ -244,6 +263,37 @@ class ConnectorApp(tk.Tk):
                 except Exception:
                     pass
             threading.Thread(target=report_pause, daemon=True).start()
+
+    def sign_out(self) -> None:
+        if self.sign_out_busy:
+            return
+        self.sync_enabled = False
+        self.auto_sync_button.configure(text="Resume automatic sync")
+        self.demo_arm.set(False)
+        self.demo_watch.set(False)
+        if not self.save():
+            return
+        if self.sync_busy or self.demo_busy:
+            self.status.set("Sign-out waiting · scheduled activity stopped")
+            self.message.set("The current sync or demo bot cycle is still running. Wait for it to finish, then select Sign out and disconnect again.")
+            return
+        self.sign_out_busy = True
+        self.sign_out_button.configure(state="disabled")
+        self.status.set("Signing out · stopping connector access")
+
+        def work() -> None:
+            try:
+                token = read_secret(DEVICE_CREDENTIAL)
+                if token:
+                    cloud = CloudClient(self.config_data["website_url"])
+                    sign_out_device(cloud, token, (DEVICE_CREDENTIAL, MCP_CREDENTIAL), delete_secret)
+                else:
+                    delete_secret(MCP_CREDENTIAL)
+                self.sign_out_results.put((True, "Signed out. Pair this device again before syncing or running the demo bot. Existing MT5 positions are unaffected."))
+            except Exception as error:
+                self.sign_out_results.put((False, f"Could not fully sign out: {type(error).__name__}: {str(error)[:180]}. Automatic sync and demo bot are off. Retry here, or revoke this device on the website."))
+
+        threading.Thread(target=work, daemon=True).start()
 
     def _scheduled_sync(self) -> None:
         if self.sync_enabled and not self.sync_busy:

@@ -14,6 +14,7 @@ import { AssistantPage } from './components/AssistantPage'
 import { TradeHistoryPage } from './features/trade-history/TradeHistoryPage'
 import { BrokerPage } from './features/broker/BrokerPage'
 import { BrokerAssistantPage } from './features/broker/BrokerAssistantPage'
+import { DemoStrategiesPage } from './features/broker/DemoStrategiesPage'
 import { getConnectionStatus, type ConnectorDevice } from './features/broker/connectionStatus'
 import { authClient } from './auth-client'
 import { RecoveryCodesPanel } from './features/account/RecoveryCodesPanel'
@@ -40,7 +41,7 @@ const activities = [
   { title: 'Strategy workspace opened', detail: 'No broker connection · 42 min ago', icon: Bot, tone: 'red' },
 ]
 
-function Sidebar({ active, onNavigate, open, onClose, isMobile, displayName }: { active: string; onNavigate: (name: string) => void; open: boolean; onClose: () => void; isMobile: boolean; displayName: string }) {
+function Sidebar({ active, onNavigate, onSignOut, open, onClose, isMobile, displayName }: { active: string; onNavigate: (name: string) => void; onSignOut: () => void; open: boolean; onClose: () => void; isMobile: boolean; displayName: string }) {
   const reduceMotion = useReducedMotion()
   const [moreOpen, setMoreOpen] = useState(false)
   const moreRef = useRef<HTMLDivElement>(null)
@@ -120,6 +121,7 @@ function Sidebar({ active, onNavigate, open, onClose, isMobile, displayName }: {
           <div className="avatar">{displayName.trim().slice(0, 2).toUpperCase()}</div><div className="user-copy"><strong>{displayName}</strong><span>Personal workspace</span></div>
           <button className="user-menu icon-button" type="button" onClick={() => { onNavigate('Security'); onClose() }} aria-label="Manage account security" title="Manage recovery codes"><MoreHorizontal size={18} /></button>
         </div>
+        <button className="mobile-signout" type="button" onClick={onSignOut}><LogOut size={18} /> Sign out</button>
       </aside>
     </>
   )
@@ -175,7 +177,7 @@ function App() {
   const [simulationAvailable, setSimulationAvailable] = useState<boolean | null>(null)
   const dashboardRef = useRef<HTMLDivElement>(null)
   const brokerPage = active === 'Accounts' || active === 'Positions' || (active === 'Overview' && simulationAvailable === false)
-  const brokerView = simulationAvailable === false || brokerPage || (active === 'Assistant' && assistantSource === 'broker')
+  const brokerView = simulationAvailable === false || brokerPage || active === 'Bots & Strategies' || (active === 'Assistant' && assistantSource === 'broker')
   const connectorStatus = connectorError
     ? { tone: 'muted' as const, label: 'MT5 status unavailable', detail: 'Could not check the connector. Open Accounts to retry.' }
     : connectorDevices === null
@@ -317,7 +319,7 @@ function App() {
   return (
     <LazyMotion features={domAnimation}>
     <div className="app-shell" ref={dashboardRef}>
-      <Sidebar active={active} onNavigate={setActive} open={drawerOpen} isMobile={isMobile} displayName={displayName} onClose={() => { setDrawerOpen(false); if (isMobile) menuButtonRef.current?.focus() }} />
+      <Sidebar active={active} onNavigate={setActive} onSignOut={() => { setDrawerOpen(false); void signOut() }} open={drawerOpen} isMobile={isMobile} displayName={displayName} onClose={() => { setDrawerOpen(false); if (isMobile) menuButtonRef.current?.focus() }} />
       <main className="main-area">
         <header className="topbar">
           <button ref={menuButtonRef} className="mobile-menu icon-button" type="button" onClick={() => setDrawerOpen(true)} aria-label="Open navigation" aria-expanded={drawerOpen}><Menu size={21} /></button>
@@ -338,7 +340,7 @@ function App() {
             <span className="topbar-date">{brokerView ? 'SNAPSHOT TIME SHOWN BELOW' : <>LAST UPDATE <b>·</b> NOT AVAILABLE</>}</span>
             <button className="icon-button unavailable-control" type="button" disabled aria-label="Notifications unavailable in preview" title="Notifications need the application backend"><Bell size={18} /><i /></button>
             <button className="theme-toggle" type="button" onClick={() => setTheme((value) => value === 'dark' ? 'light' : 'dark')} aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`} title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`}>{theme === 'dark' ? <Sun size={17} /> : <Moon size={17} />}<span>{theme === 'dark' ? 'Light' : 'Dark'}</span></button>
-            <button className="icon-button signout-button" type="button" onClick={() => void signOut()} aria-label="Sign out" title="Sign out"><LogOut size={18} /></button>
+            <button className="icon-button signout-button" type="button" onClick={() => void signOut()} aria-label="Sign out" title="Sign out"><LogOut size={18} /><span>Sign out</span></button>
           </div>
         </header>
 
@@ -417,14 +419,17 @@ function App() {
             <RecoveryCodesPanel />
           </> : brokerPage ? <>
             <BrokerPage focus={active === 'Positions' ? 'positions' : 'accounts'} />
-            <footer className="page-footer"><span><span className="footer-mark"><BotifyMark compact /></span>TRADERELAYCITY</span><span>MT5 READ ONLY <i /> ORDER EXECUTION DISABLED</span><span>Built for clarity.</span></footer>
+            <footer className="page-footer"><span><span className="footer-mark"><BotifyMark compact /></span>TRADERELAYCITY</span><span>MT5 SNAPSHOTS <i /> DEMO BOT IN CONNECTOR</span><span>Built for clarity.</span></footer>
+          </> : active === 'Bots & Strategies' ? <>
+            <DemoStrategiesPage />
+            <footer className="page-footer"><span><span className="footer-mark"><BotifyMark compact /></span>TRADERELAYCITY</span><span>MT5 DEMO STRATEGIES <i /> LIVE MODE DISABLED</span><span>Built for clarity.</span></footer>
           </> : active === 'Trade History' ? <>
             {simulationAvailable ? <TradeHistoryPage key={`${userId}:${account?.id ?? 'unavailable'}`} accountId={account?.id ?? ''} accountLabel={account?.label ?? 'Selected account'} currency={account?.balance.currency ?? 'USD'} userId={userId} /> : <SectionPreview active={active} />}
             <footer className="page-footer"><span><span className="footer-mark"><BotifyMark compact /></span>TRADERELAYCITY</span><span>{simulationAvailable ? 'SIMULATION' : 'MT5 READ ONLY'} <i /> LIVE MODE DISABLED</span><span>Built for clarity.</span></footer>
           </> : active === 'Assistant' ? <>
             {simulationAvailable && <div className="assistant-source-switch" role="group" aria-label="Assistant data source"><button type="button" aria-pressed={assistantSource === 'simulation'} onClick={() => setAssistantSource('simulation')}>Simulation records</button><button type="button" aria-pressed={assistantSource === 'broker'} onClick={() => setAssistantSource('broker')}>MT5 snapshots</button></div>}
             {assistantSource === 'broker' ? <BrokerAssistantPage onOpenAccounts={() => setActive('Accounts')} /> : <AssistantPage key={`${userId}:${account?.id ?? 'unavailable'}`} account={account} userId={userId} />}
-            <footer className="page-footer"><span><span className="footer-mark"><BotifyMark compact /></span>TRADERELAYCITY</span><span>{assistantSource === 'broker' ? 'MT5 READ ONLY' : 'SIMULATION'} <i /> ORDER EXECUTION DISABLED</span><span>Built for clarity.</span></footer>
+            <footer className="page-footer"><span><span className="footer-mark"><BotifyMark compact /></span>TRADERELAYCITY</span><span>{assistantSource === 'broker' ? 'ASSISTANT READ ONLY' : 'SIMULATION'} <i /> DEMO BOT IN CONNECTOR</span><span>Built for clarity.</span></footer>
           </> : <>
             <div className="page-intro page-intro--simple"><div><div className="overline"><span className="overline-line" />WORKSPACE</div><h1>{active}<span className="title-period">.</span></h1><p className="page-subtitle">TradeRelayCity simulation workspace.</p></div><div className="preview-stamp"><span>SIMULATED</span><span className="stamp-divider" /><time>07 NOV 2026</time></div></div>
             <SectionPreview active={active} />

@@ -13,6 +13,9 @@ TradeRelayCity Connector for Windows - MT5 snapshots and guarded DEMO bot
    To permit an actual EURUSD DEMO order, set MT5's AI Assistant > Trading
    permission to allow trades, arm demo orders in the connector for this
    session, and run a cycle. Optional 15-minute watch repeats while armed.
+7. Select Sign out and disconnect to stop automatic activity, revoke this
+   device's website pairing, and remove its saved device and MT5 keys. Wait
+   for a running sync or demo cycle to finish before signing out.
 
 The bot requires a closed-bar strategy setup, server AI approval, current
 broker quote, verified positive loss and margin calculations, order check,

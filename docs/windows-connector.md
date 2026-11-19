@@ -46,6 +46,8 @@ The source connector now pairs with the owner through `/api/connector/pair` and 
 
 The connector runs MT5's required `get_workspace_info` pre-flight before its other tool calls. A disconnected terminal, missing broker identity, unknown account type, or changed broker/server/login blocks upload. The website shows the last observation time and labels stale values. The public executable was rebuilt after this update and its integrity and built-site hash were checked. Its executable has not yet been launched interactively.
 
+**Sign out and disconnect** in the Windows connector stops automatic sync and demo monitoring, revokes that device's pairing on the website, and removes the saved device and MT5 credentials. A running sync or demo cycle must finish first. If the website is unreachable, automatic activity stays off and the connector keeps the device credential so sign-out can be retried; the device can also be revoked from **Accounts** on the website. The website's **Sign out** button ends the browser session separately. Neither action closes open MT5 positions.
+
 Pairing and snapshot upload are source-implemented and locally tested; the public-account revision still needs a hosted two-user check. Open-position field mapping has only synthetic test coverage because the local terminal currently reports no open positions. The separately armed demo bot has guarded order submission and reconciliation code, but no broker demo fill has been verified. Live-account order execution stays disabled. Closing the connector stops local work but does not close MT5 positions.
 
 ## 2026-11-19 guarded demo bot update

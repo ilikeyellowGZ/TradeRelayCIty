@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import unittest
 
-from traderelaycity_connector.connector_flow import pair_device, sync_read_only
+from traderelaycity_connector.connector_flow import pair_device, sign_out_device, sync_read_only
 from traderelaycity_connector.broker_snapshot import SnapshotError
 
 
@@ -17,6 +17,9 @@ class FakeCloud:
             raise AssertionError("unexpected pairing request")
         return "B" * 43
 
+    def sign_out(self, token):
+        self.signed_out_token = token
+
     def upload_snapshot(self, token, snapshot):
         self.uploaded = (token, snapshot)
         return {"accountId": "account-1", "mode": "BROKER_READ_ONLY"}
@@ -26,6 +29,13 @@ class FakeCloud:
 
 
 class ConnectorFlowTests(unittest.TestCase):
+    def test_sign_out_revokes_pairing_before_clearing_local_credentials(self):
+        cloud = FakeCloud()
+        deleted = []
+        sign_out_device(cloud, "B" * 43, ("TradeRelayCity/device", "TradeRelayCity/mt5-mcp"), lambda name: deleted.append(name))
+        self.assertEqual(cloud.signed_out_token, "B" * 43)
+        self.assertEqual(deleted, ["TradeRelayCity/device", "TradeRelayCity/mt5-mcp"])
+
     def test_pairing_saves_device_token_only_in_secure_store(self):
         saved = []
         result = pair_device(FakeCloud(), "A" * 20, "Owner PC", lambda key, value: saved.append((key, value)))

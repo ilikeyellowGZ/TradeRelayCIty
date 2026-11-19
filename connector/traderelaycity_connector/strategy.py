@@ -32,6 +32,26 @@ class Evaluation:
     signal: CandidateSignal | None
     reason: str
 
+@dataclass(frozen=True)
+class StrategyConfig:
+    sweep_lookback: int = 8
+    displacement_atr: float = 1.2
+    min_gap_atr: float = .1
+    reward_risk: float = 2
+
+    @classmethod
+    def from_cloud(cls, value: object) -> "StrategyConfig":
+        if not isinstance(value, dict) or value.get("type") != "sweep_fvg_v1" or value.get("symbol") != "EURUSD":
+            raise ValueError("Unsupported DEMO strategy")
+        fields = (("sweepLookback", 4, 16), ("displacementAtr", .8, 2), ("minGapAtr", .05, .3), ("rewardRisk", 1.5, 3))
+        parsed = []
+        for name, minimum, maximum in fields:
+            number = value.get(name)
+            if isinstance(number, bool) or not isinstance(number, (int, float)) or not isfinite(number) or not minimum <= number <= maximum or (name == "sweepLookback" and not isinstance(number, int)):
+                raise ValueError(f"Invalid DEMO strategy {name}")
+            parsed.append(number)
+        return cls(*parsed)
+
 def validate_bars(bars: list[Candle]) -> str | None:
     previous = None
     for bar in bars:
@@ -77,7 +97,7 @@ def higher_timeframe_bias(bars: list[Candle]) -> Direction | None:
     if high_falling and low_falling: return "SELL"
     return None
 
-def evaluate_closed_bars(symbol: str, signal_bars: list[Candle], higher_bars: list[Candle]) -> Evaluation:
+def evaluate_closed_bars(symbol: str, signal_bars: list[Candle], higher_bars: list[Candle], config: StrategyConfig = StrategyConfig()) -> Evaluation:
     if (problem := validate_bars(signal_bars)) or (problem := validate_bars(higher_bars)):
         return Evaluation(None, problem)
     if len(signal_bars) < 100 or len(higher_bars) < 100:
@@ -88,7 +108,7 @@ def evaluate_closed_bars(symbol: str, signal_bars: list[Candle], higher_bars: li
     values = atr(signal_bars)
     highs, lows = confirmed_swings(signal_bars)
     current = len(signal_bars) - 1
-    recent_start = max(0, current - 8)
+    recent_start = max(0, current - config.sweep_lookback)
     candidates: list[CandidateSignal] = []
 
     if bias == "BUY":
@@ -100,15 +120,15 @@ def evaluate_closed_bars(symbol: str, signal_bars: list[Candle], higher_bars: li
                 for displacement in range(sweep + 1, current - 1):
                     bar, volatility = signal_bars[displacement], values[displacement]
                     if volatility is None or bar.close <= bar.open: continue
-                    if bar.close - bar.open < 1.2 * volatility or bar.close < bar.low + .75 * (bar.high - bar.low): continue
+                    if bar.close - bar.open < config.displacement_atr * volatility or bar.close < bar.low + .75 * (bar.high - bar.low): continue
                     third = signal_bars[displacement + 2]
                     gap = third.low - bar.high
-                    if gap < .1 * volatility: continue
+                    if gap < config.min_gap_atr * volatility: continue
                     entry = (third.low + bar.high) / 2
                     stop = swing_low - .1 * volatility
                     risk = entry - stop
                     if risk <= 0: continue
-                    candidates.append(CandidateSignal("BUY", symbol, entry, stop, entry + 2 * risk, signal_bars[displacement + 2].timestamp, 8, "Bullish H1 structure, confirmed M15 sweep, displacement and closed-bar FVG."))
+                    candidates.append(CandidateSignal("BUY", symbol, entry, stop, entry + config.reward_risk * risk, signal_bars[displacement + 2].timestamp, 8, "Bullish H1 structure, confirmed M15 sweep, displacement and closed-bar FVG."))
                     break
                 if candidates: break
     else:
@@ -120,15 +140,15 @@ def evaluate_closed_bars(symbol: str, signal_bars: list[Candle], higher_bars: li
                 for displacement in range(sweep + 1, current - 1):
                     bar, volatility = signal_bars[displacement], values[displacement]
                     if volatility is None or bar.close >= bar.open: continue
-                    if bar.open - bar.close < 1.2 * volatility or bar.close > bar.low + .25 * (bar.high - bar.low): continue
+                    if bar.open - bar.close < config.displacement_atr * volatility or bar.close > bar.low + .25 * (bar.high - bar.low): continue
                     third = signal_bars[displacement + 2]
                     gap = bar.low - third.high
-                    if gap < .1 * volatility: continue
+                    if gap < config.min_gap_atr * volatility: continue
                     entry = (third.high + bar.low) / 2
                     stop = swing_high + .1 * volatility
                     risk = stop - entry
                     if risk <= 0: continue
-                    candidates.append(CandidateSignal("SELL", symbol, entry, stop, entry - 2 * risk, signal_bars[displacement + 2].timestamp, 8, "Bearish H1 structure, confirmed M15 sweep, displacement and closed-bar FVG."))
+                    candidates.append(CandidateSignal("SELL", symbol, entry, stop, entry - config.reward_risk * risk, signal_bars[displacement + 2].timestamp, 8, "Bearish H1 structure, confirmed M15 sweep, displacement and closed-bar FVG."))
                     break
                 if candidates: break
     if len(candidates) > 1: return Evaluation(None, "competing directions are ambiguous")

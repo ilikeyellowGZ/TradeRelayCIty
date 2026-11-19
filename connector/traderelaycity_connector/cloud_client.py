@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import json
 from urllib.error import HTTPError, URLError
-from urllib.parse import urlsplit
+from urllib.parse import quote, urlsplit
 from urllib.request import HTTPRedirectHandler, Request, build_opener
 
 
@@ -55,6 +55,28 @@ class CloudClient:
             raise CloudClientError("Connector API returned an invalid response")
         return result
 
+    def active_demo_strategy(self, token: str, account_id: str) -> dict | None:
+        if not token or len(token) != 43 or not account_id or len(account_id) > 100:
+            raise CloudClientError("Paired DEMO account credential is missing")
+        request = Request(self.website_url + "/api/connector/demo/strategy?accountId=" + quote(account_id, safe=""),
+                          headers={"authorization": f"Bearer {token}", "accept": "application/json", "user-agent": "TradeRelayCity-Connector/0.1"}, method="GET")
+        try:
+            with self._opener.open(request, timeout=self.timeout) as response:
+                raw = response.read(16_385)
+        except HTTPError as error:
+            raise CloudClientError(f"Strategy request rejected (HTTP {error.code})") from None
+        except (URLError, TimeoutError) as error:
+            raise CloudClientError("Strategy service is unreachable; retry later") from error
+        if len(raw) > 16_384:
+            raise CloudClientError("Strategy response exceeds size limit")
+        try:
+            data = json.loads(raw)
+        except json.JSONDecodeError as error:
+            raise CloudClientError("Strategy service returned invalid JSON") from error
+        if not isinstance(data, dict) or "strategy" not in data or (data["strategy"] is not None and (not isinstance(data["strategy"], dict) or not isinstance(data["strategy"].get("id"), str) or not isinstance(data["strategy"].get("config"), dict))):
+            raise CloudClientError("Strategy service returned an invalid strategy")
+        return data["strategy"]
+
     def pair(self, code: str, name: str) -> str:
         result = self._post("/api/connector/pair", {"code": code, "name": name})
         token, device_id = result.get("token"), result.get("deviceId")
@@ -76,6 +98,18 @@ class CloudClient:
         result = self._post("/api/connector/status", {"state": state}, token)
         if result.get("state") != state:
             raise CloudClientError("Connector API did not confirm this status")
+
+    def sign_out(self, token: str) -> None:
+        if not token or len(token) != 43:
+            raise CloudClientError("Paired device credential is missing")
+        try:
+            result = self._post("/api/connector/sign-out", {}, token)
+        except CloudClientError as error:
+            if str(error) == "Connector API rejected request (HTTP 401)":
+                return  # The website has already revoked this device.
+            raise
+        if result.get("signedOut") is not True:
+            raise CloudClientError("Connector API did not confirm sign-out")
 
     def request_demo_opinion(self, token: str, request: dict) -> dict:
         if not token or len(token) != 43:

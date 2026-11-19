@@ -24,6 +24,7 @@ class SqliteD1 {
     this.sqlite.exec(readFileSync(new URL('../../../../migrations/0011_connector_status.sql', import.meta.url), 'utf8'))
     this.sqlite.exec(readFileSync(new URL('../../../../migrations/0012_broker_ai_usage.sql', import.meta.url), 'utf8'))
     this.sqlite.exec(readFileSync(new URL('../../../../migrations/0013_broker_demo_decisions.sql', import.meta.url), 'utf8'))
+    this.sqlite.exec(readFileSync(new URL('../../../../migrations/0016_broker_demo_strategies.sql', import.meta.url), 'utf8'))
   }
 
   prepare(sql: string) {
@@ -57,6 +58,31 @@ const snapshot = () => ({
 })
 
 describe('connector pairing and snapshots', () => {
+  it('creates and activates only owned DEMO strategies for the bound connector', async () => {
+    const { request, ownerHeaders } = setup()
+    const codeResponse = await request('/api/broker/pairing-codes', { method: 'POST', headers: ownerHeaders, body: '{}' })
+    const { code } = await codeResponse.json() as { code: string }
+    const pair = await request('/api/connector/pair', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ code, name: 'Windows PC' }) })
+    const { token } = await pair.json() as { token: string }
+    const deviceHeaders = { authorization: `Bearer ${token}`, 'content-type': 'application/json' }
+    await request('/api/connector/snapshot', { method: 'POST', headers: deviceHeaders, body: JSON.stringify(snapshot()) })
+    const accounts = await request('/api/broker/accounts', { headers: ownerHeaders }).then((response) => response.json()) as { accounts: Array<{ id: string }> }
+    const accountId = accounts.accounts[0].id
+    const basePath = `/api/broker/accounts/${accountId}/strategies`
+    expect((await request(`/api/connector/demo/strategy?accountId=${accountId}`, { headers: deviceHeaders }).then((response) => response.json()) as { strategy: unknown }).strategy).toBeNull()
+    const config = { type: 'sweep_fvg_v1', symbol: 'EURUSD', sweepLookback: 8, displacementAtr: 1.2, minGapAtr: 0.1, rewardRisk: 2 }
+    expect((await request(basePath, { method: 'POST', headers: ownerHeaders, body: JSON.stringify({ name: 'Invalid', config: { ...config, symbol: 'USDJPY' } }) })).status).toBe(400)
+    expect((await request(basePath, { method: 'POST', headers: { ...ownerHeaders, cookie: 'session=other' }, body: JSON.stringify({ name: 'Other owner', config }) })).status).toBe(404)
+    const created = await request(basePath, { method: 'POST', headers: ownerHeaders, body: JSON.stringify({ name: 'Sweep test', config }) })
+    expect(created.status).toBe(201)
+    const { id } = await created.json() as { id: string }
+    expect((await request(`${basePath}/${id}/activate`, { method: 'POST', headers: { ...ownerHeaders, cookie: 'session=other' } })).status).toBe(404)
+    expect((await request(`${basePath}/${id}/activate`, { method: 'POST', headers: ownerHeaders })).status).toBe(200)
+    const active = await request(`/api/connector/demo/strategy?accountId=${accountId}`, { headers: deviceHeaders }).then((response) => response.json()) as { strategy: { id: string; config: typeof config } }
+    expect(active.strategy).toMatchObject({ id, config })
+    expect((await request(`${basePath}/deactivate`, { method: 'POST', headers: ownerHeaders })).status).toBe(200)
+    expect((await request(`/api/connector/demo/strategy?accountId=${accountId}`, { headers: deviceHeaders }).then((response) => response.json()) as { strategy: unknown }).strategy).toBeNull()
+  })
   it('denies unsigned and cross-origin browser requests', async () => {
     const { request, ownerHeaders } = setup()
     expect((await request('/api/broker/devices')).status).toBe(401)
@@ -110,6 +136,23 @@ describe('connector pairing and snapshots', () => {
     expect((await request(`/api/broker/devices/${deviceId}`, { method: 'DELETE', headers: ownerHeaders })).status).toBe(200)
     expect((await request('/api/connector/snapshot', { method: 'POST', headers: bearerHeaders, body: JSON.stringify(snapshot()) })).status).toBe(401)
     expect((await request('/api/connector/status', { method: 'POST', headers: bearerHeaders, body: JSON.stringify({ state: 'MCP_ERROR' }) })).status).toBe(401)
+  })
+
+  it('lets a connector sign itself out and rejects its old token', async () => {
+    const { request, ownerHeaders } = setup()
+    const codeResponse = await request('/api/broker/pairing-codes', { method: 'POST', headers: ownerHeaders, body: '{}' })
+    const { code } = await codeResponse.json() as { code: string }
+    const pair = await request('/api/connector/pair', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ code, name: 'Windows PC' }) })
+    const { token } = await pair.json() as { token: string }
+    const bearerHeaders = { authorization: `Bearer ${token}` }
+    expect((await request('/api/connector/sign-out', { method: 'POST' })).status).toBe(401)
+    const signedOut = await request('/api/connector/sign-out', { method: 'POST', headers: bearerHeaders })
+    expect(signedOut.status).toBe(200)
+    expect(await signedOut.json()).toEqual({ signedOut: true })
+    expect((await request('/api/connector/snapshot', { method: 'POST', headers: bearerHeaders, body: JSON.stringify(snapshot()) })).status).toBe(401)
+    expect((await request('/api/connector/sign-out', { method: 'POST', headers: bearerHeaders })).status).toBe(401)
+    const devices = await request('/api/broker/devices', { headers: ownerHeaders })
+    expect((await devices.json() as { devices: Array<{ revokedAt: number | null }> }).devices[0].revokedAt).not.toBeNull()
   })
 
   it('rejects expired pairing codes', async () => {
@@ -187,8 +230,12 @@ describe('connector pairing and snapshots', () => {
     current.positions = []
     expect((await request('/api/connector/snapshot', { method: 'POST', headers: bearerHeaders, body: JSON.stringify(current) })).status).toBe(200)
     const { accounts } = await (await request('/api/broker/accounts', { headers: ownerHeaders })).json() as { accounts: Array<{ id: string }> }
+    const strategyPath = `/api/broker/accounts/${accounts[0].id}/strategies`
+    const createdStrategy = await request(strategyPath, { method: 'POST', headers: ownerHeaders, body: JSON.stringify({ name: 'AI test setup', config: { type: 'sweep_fvg_v1', symbol: 'EURUSD', sweepLookback: 8, displacementAtr: 1.2, minGapAtr: 0.1, rewardRisk: 2 } }) })
+    const strategyId = (await createdStrategy.json() as { id: string }).id
+    await request(`${strategyPath}/${strategyId}/activate`, { method: 'POST', headers: ownerHeaders })
     const bars = Array.from({ length: 20 }, (_, index) => ({ time: new Date(Date.now() - (21 - index) * 60_000).toISOString(), open: 1.1, high: 1.101, low: 1.099, close: 1.1 }))
-    const body = { accountId: accounts[0].id, snapshotId: current.observedAt, setupTime: new Date(Date.now() - 60_000).toISOString(), candidate: { symbol: 'EURUSD', direction: 'BUY', entry: 1.1, stop: 1.095, target: 1.11, strategyVersion: '0.1.0' }, marketSnapshot: { signalBars: bars, higherBars: bars } }
+    const body = { accountId: accounts[0].id, strategyId, snapshotId: current.observedAt, setupTime: new Date(Date.now() - 60_000).toISOString(), candidate: { symbol: 'EURUSD', direction: 'BUY', entry: 1.1, stop: 1.095, target: 1.11, strategyVersion: '0.1.0' }, marketSnapshot: { signalBars: bars, higherBars: bars } }
     expect((await request('/api/connector/demo/opinion', { method: 'POST', body: JSON.stringify(body) })).status).toBe(401)
     expect((await request('/api/connector/demo/opinion', { method: 'POST', headers: bearerHeaders, body: JSON.stringify({ ...body, snapshotId: 'stale' }) })).status).toBe(409)
     const provider = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(JSON.stringify({

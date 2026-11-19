@@ -78,3 +78,35 @@
 .broker-answer small { color: var(--text-muted); font-size: 12px; }
 @media (max-width: 900px) { .broker-grid { grid-template-columns: 1fr; } }
 @media (max-width: 600px) { .broker-panel, .broker-account { padding: 20px; } .broker-intro { align-items: flex-start; flex-direction: column; } .broker-refresh { align-self: flex-start; } .broker-code-box code { font-size: 16px; letter-spacing: .02em; } .assistant-source-switch { display: flex; width: 100%; max-width: 370px; flex-wrap: nowrap; } .assistant-source-switch button { flex: 1 1 0; padding-inline: 7px; font-size: 13px; white-space: nowrap; } .broker-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); } .broker-account-top { flex-direction: column; } .broker-state-note { padding: 16px; } }
+.strategy-page { max-width: 1320px; }
+.strategy-account, .strategy-editor label { display: grid; gap: 8px; color: var(--text); font-size: 14px; font-weight: 650; }
+.strategy-account { max-width: 560px; }
+.strategy-account select, .strategy-editor input { min-height: 48px; width: 100%; padding: 10px 14px; border: 1px solid var(--border); border-radius: 14px; color: var(--text); background: var(--surface-raised); font: inherit; }
+.strategy-account select:focus-visible, .strategy-editor input:focus-visible, .strategy-actions button:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+.strategy-grid { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 24px; align-items: start; }
+.strategy-ai { display: grid; gap: 16px; grid-column: 1 / -1; padding: 32px; }
+.strategy-ai p { margin: 0; color: var(--text-muted); line-height: 1.6; }
+.strategy-ai label { font-size: 14px; font-weight: 650; }
+.strategy-ai textarea { width: 100%; min-width: 0; padding: 14px 16px; border: 1px solid var(--border); border-radius: 14px; color: var(--text); background: var(--surface-raised); font: inherit; resize: vertical; }
+.strategy-ai textarea:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+.strategy-ai button { justify-self: start; }
+.strategy-ai-explanation { padding: 16px; border-left: 3px solid var(--cream-100); background: var(--surface-raised); }
+.strategy-editor, .strategy-list { display: grid; gap: 24px; padding: 32px; }
+.strategy-help, .strategy-list > p { margin: 0; color: var(--text-muted); line-height: 1.6; }
+.strategy-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+.strategy-editor small, .strategy-list small { color: var(--text-muted); font-size: 12px; font-weight: 400; line-height: 1.5; }
+.strategy-editor button { justify-self: start; }
+.strategy-list ul { display: grid; gap: 0; margin: 0; padding: 0; list-style: none; }
+.strategy-list li { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 16px; padding: 20px 0; border-top: 1px solid var(--border); }
+.strategy-list li > div:first-child { display: grid; gap: 6px; }
+.strategy-list strong { font-size: 16px; }
+.strategy-active, .strategy-draft { width: fit-content; font-size: 12px; font-weight: 650; }
+.strategy-active { color: var(--positive); }
+.strategy-draft { color: var(--text-muted); }
+.strategy-actions { display: flex; align-items: start; flex-wrap: wrap; gap: 8px; }
+.strategy-actions button { min-height: 44px; padding: 0 14px; border: 1px solid var(--border); border-radius: 999px; color: var(--text); background: var(--surface-raised); cursor: pointer; }
+.strategy-actions button:hover { background: var(--surface); }
+.strategy-actions button:disabled { opacity: .55; cursor: wait; }
+.strategy-notice { display: flex; align-items: center; gap: 8px; margin: 0; padding: 16px 20px; border: 1px solid var(--positive); border-radius: 16px; color: var(--positive); background: var(--surface); }
+@media (max-width: 900px) { .strategy-grid { grid-template-columns: 1fr; } }
+@media (max-width: 600px) { .strategy-ai, .strategy-editor, .strategy-list { padding: 20px; } .strategy-fields { grid-template-columns: 1fr; } }

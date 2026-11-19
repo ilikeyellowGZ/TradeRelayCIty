@@ -92,6 +92,9 @@ class BrokerSnapshotTests(unittest.TestCase):
                 elif self.path == "/api/connector/status":
                     self.send_response(200)
                     answer = {"state": body["state"]}
+                elif self.path == "/api/connector/sign-out":
+                    self.send_response(200)
+                    answer = {"signedOut": True}
                 else:
                     assert body["account"]["login"] == "12345"
                     self.send_response(200)
@@ -112,11 +115,13 @@ class BrokerSnapshotTests(unittest.TestCase):
             snapshot = {"observedAt": "2026-11-18T08:00:00.000Z", "account": {"login": "12345"}}
             result = client.upload_snapshot(token, snapshot)
             client.report_status(token, "MCP_OFFLINE")
+            client.sign_out(token)
             self.assertEqual(result["accountId"], "account-1")
             self.assertEqual(seen, [
                 ("/api/connector/pair", None, None, "TradeRelayCity-Connector/0.1"),
                 ("/api/connector/snapshot", "Bearer " + "A" * 43, None, "TradeRelayCity-Connector/0.1"),
                 ("/api/connector/status", "Bearer " + "A" * 43, None, "TradeRelayCity-Connector/0.1"),
+                ("/api/connector/sign-out", "Bearer " + "A" * 43, None, "TradeRelayCity-Connector/0.1"),
             ])
             with self.assertRaisesRegex(RuntimeError, "Invalid connector status"):
                 client.report_status(token, "SYNCED")

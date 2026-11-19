@@ -16,7 +16,7 @@ from .demo_execution import DemoCommand, DemoExecutor, ExecutionOutcome, Reconci
 from .journal import Journal
 from .mcp_adapter import validate_local_endpoint
 from .risk import AccountRisk, Candidate, ContractSpec, RiskLimits, evaluate_candidate
-from .strategy import Candle, CandidateSignal, evaluate_closed_bars
+from .strategy import Candle, CandidateSignal, StrategyConfig, evaluate_closed_bars
 
 SYMBOL = "EURUSD"
 STRATEGY_VERSION = "0.1.0"
@@ -329,9 +329,16 @@ async def run_demo_cycle(cloud: CloudClient, token: str, endpoint: str, key: str
                     raise DemoBotBlocked(result.reason or "A previous submission remains uncertain; review MT5 history before another entry")
         if journal.connection.execute("SELECT 1 FROM commands WHERE account_binding=? AND status IN ('filled','partially_filled') AND updated_at>=date('now') LIMIT 1", (binding,)).fetchone():
             return ExecutionOutcome("hold", "A demo entry has already filled for this account today")
+        active_strategy = await asyncio.to_thread(cloud.active_demo_strategy, token, receipt["accountId"])
+        if active_strategy is None:
+            return ExecutionOutcome("hold", "Create and activate a DEMO strategy on the Trading page")
+        try:
+            strategy_config = StrategyConfig.from_cloud(active_strategy["config"])
+        except (KeyError, ValueError, TypeError):
+            raise DemoBotBlocked("Active DEMO strategy is invalid") from None
         signal_bars = await broker.chart_bars("M15", now)
         higher_bars = await broker.chart_bars("H1", now)
-        evaluated = evaluate_closed_bars(SYMBOL, signal_bars, higher_bars)
+        evaluated = evaluate_closed_bars(SYMBOL, signal_bars, higher_bars, strategy_config)
         if evaluated.signal is None:
             return ExecutionOutcome("hold", evaluated.reason)
         signal = evaluated.signal
@@ -339,6 +346,7 @@ async def run_demo_cycle(cloud: CloudClient, token: str, endpoint: str, key: str
             return ExecutionOutcome("hold", "Strategy setup expired")
         request = {
             "accountId": receipt["accountId"], "snapshotId": snapshot["observedAt"],
+            "strategyId": active_strategy["id"],
             "setupTime": signal.setup_time.isoformat(),
             "candidate": {"symbol": SYMBOL, "direction": signal.direction, "entry": signal.entry_context,
                           "stop": signal.stop, "target": signal.target, "strategyVersion": STRATEGY_VERSION},
@@ -353,7 +361,10 @@ async def run_demo_cycle(cloud: CloudClient, token: str, endpoint: str, key: str
         volume = await broker.size(signal)
         if not arm_demo:
             return ExecutionOutcome("ready", f"Demo candidate approved at {volume} lots; order submission is not armed")
-        command_seed = f"{binding}|{SYMBOL}|{signal.direction}|{signal.setup_time.isoformat()}|{STRATEGY_VERSION}"
+        latest_strategy = await asyncio.to_thread(cloud.active_demo_strategy, token, receipt["accountId"])
+        if latest_strategy is None or latest_strategy.get("id") != active_strategy["id"] or latest_strategy.get("config") != active_strategy["config"]:
+            return ExecutionOutcome("hold", "Active DEMO strategy changed during this cycle")
+        command_seed = f"{binding}|{SYMBOL}|{signal.direction}|{signal.setup_time.isoformat()}|{STRATEGY_VERSION}|{active_strategy['id']}"
         command_id = hashlib.sha256(command_seed.encode()).hexdigest()
         command = DemoCommand(command_id, command_id, binding,
                               min(_utc(opinion["expiresAt"]), datetime.now(timezone.utc) + timedelta(seconds=45)),
