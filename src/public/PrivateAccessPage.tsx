@@ -29,7 +29,7 @@ export function PrivateAccessPage() {
     try {
       const result = await authClient.signIn.username({ username: username.trim(), password })
       if (result.error || !result.data) {
-        setError(result.error?.status === 429 ? 'Too many attempts. Wait a minute and try again.' : result.error?.code === 'EMAIL_NOT_VERIFIED' ? 'Verify your email before signing in. Check your inbox or request a new link.' : 'Username or password is incorrect.')
+        setError(result.error?.status === 429 ? 'Too many attempts. Wait a minute and try again.' : 'Username or password is incorrect.')
         return
       }
       window.location.replace('/app')
@@ -53,7 +53,7 @@ export function PrivateAccessPage() {
       {error && <p className="access-error" role="alert">{error}</p>}
       <button className="public-button access-submit" type="submit" disabled={busy}>{busy ? 'Signing in…' : 'Sign in'} <ArrowRight aria-hidden="true" size={24} /></button>
     </form>
-    <a className="access-recovery" href="/forgot-password">Forgot your password?</a>
+    <a className="access-recovery" href="/forgot-password">Use a recovery code</a>
     <p className="access-next">New to TradeRelayCity? <a href="/signup">Create an account</a></p>
   </AccessFrame>
 }

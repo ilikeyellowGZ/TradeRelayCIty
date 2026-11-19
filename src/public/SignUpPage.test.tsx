@@ -4,42 +4,42 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { SignUpPage } from './SignUpPage'
 import { ResetPasswordPage } from './ResetPasswordPage'
 
-const signUp = vi.fn()
-const requestPasswordReset = vi.fn()
-vi.mock('../auth-client', () => ({ authClient: {
-  signUp: { email: (...args: unknown[]) => signUp(...args) },
-  requestPasswordReset: (...args: unknown[]) => requestPasswordReset(...args),
-} }))
-
+const fetchMock = vi.fn()
+vi.stubGlobal('fetch', fetchMock)
 afterEach(() => { cleanup(); vi.clearAllMocks() })
 
 it('requires a strong password before requesting signup', () => {
   render(<SignUpPage />)
   fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Morgan Example' } })
   fireEvent.change(screen.getByLabelText('Username'), { target: { value: 'morgan' } })
-  fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'morgan@example.com' } })
   fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'short' } })
   fireEvent.click(screen.getByRole('button', { name: /create account/i }))
   expect(screen.getByRole('alert').textContent).toMatch(/12 characters/)
-  expect(signUp).not.toHaveBeenCalled()
+  expect(fetchMock).not.toHaveBeenCalled()
+  expect(screen.queryByLabelText('Email')).toBeNull()
 })
 
-it('creates an account and directs the user to email verification', async () => {
-  signUp.mockResolvedValue({ data: { user: { id: 'user-1' } }, error: null })
+it('shows recovery codes once and requires an acknowledgement before sign in', async () => {
+  fetchMock.mockResolvedValue({ ok: true, json: async () => ({ recoveryCodes: ['AAAAAAAA-BBBBBBBB-CCCCCCCC-DDDDDDDD'] }) })
   render(<SignUpPage />)
   fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Morgan Example' } })
   fireEvent.change(screen.getByLabelText('Username'), { target: { value: 'morgan' } })
-  fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'MORGAN@example.com' } })
   fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'long-password-123' } })
   fireEvent.click(screen.getByRole('button', { name: /create account/i }))
-  await waitFor(() => expect(signUp).toHaveBeenCalledWith(expect.objectContaining({ username: 'morgan', email: 'morgan@example.com', callbackURL: '/verify-email?verified=1' })))
-  expect(await screen.findByRole('status')).toHaveProperty('textContent', expect.stringContaining('Check your email'))
+  await waitFor(() => expect(fetchMock).toHaveBeenCalledWith('/api/account/register', expect.objectContaining({ method: 'POST' })))
+  expect(await screen.findByText('AAAAAAAA-BBBBBBBB-CCCCCCCC-DDDDDDDD')).toBeTruthy()
+  expect(screen.queryByRole('link', { name: /continue to sign in/i })).toBeNull()
+  fireEvent.click(screen.getByLabelText(/I have saved these codes/i))
+  expect(screen.getByRole('link', { name: /continue to sign in/i })).toBeTruthy()
 })
 
-it('does not disclose whether a recovery email belongs to an account', async () => {
-  requestPasswordReset.mockResolvedValue({ error: { message: 'Not found' } })
+it('submits a recovery code and new password', async () => {
+  fetchMock.mockResolvedValue({ ok: true, json: async () => ({ ok: true }) })
   render(<ResetPasswordPage />)
-  fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'someone@example.com' } })
-  fireEvent.click(screen.getByRole('button', { name: /send reset link/i }))
-  expect((await screen.findByRole('status')).textContent).toMatch(/If an account exists/)
+  fireEvent.change(screen.getByLabelText('Username'), { target: { value: 'morgan' } })
+  fireEvent.change(screen.getByLabelText('Recovery code'), { target: { value: 'AAAAAAAA-BBBBBBBB-CCCCCCCC-DDDDDDDD' } })
+  fireEvent.change(screen.getByLabelText('New password'), { target: { value: 'new-long-password' } })
+  fireEvent.click(screen.getByRole('button', { name: /reset password/i }))
+  await waitFor(() => expect(fetchMock).toHaveBeenCalledWith('/api/account/recover', expect.objectContaining({ method: 'POST' })))
+  expect((await screen.findByRole('status')).textContent).toMatch(/Password changed/)
 })

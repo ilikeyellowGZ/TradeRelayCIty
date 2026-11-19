@@ -2,7 +2,6 @@ import { lazy, Suspense, useEffect, useState } from 'react'
 import { LandingPage } from './public/LandingPage'
 import { PrivateAccessPage } from './public/PrivateAccessPage'
 import { SignUpPage } from './public/SignUpPage'
-import { VerifyEmailPage } from './public/VerifyEmailPage'
 import { ResetPasswordPage } from './public/ResetPasswordPage'
 import { authClient } from './auth-client'
 
@@ -35,9 +34,8 @@ export default function EntryRouter() {
   if (path === '/') return <LandingPage />
   if (path === '/login') return <PrivateAccessPage />
   if (path === '/signup') return <SignUpPage />
-  if (path === '/verify-email') return <VerifyEmailPage />
   if (path === '/forgot-password') return <ResetPasswordPage />
-  if (path === '/reset-password') return <ResetPasswordPage reset />
+  if (path === '/reset-password') return <ResetPasswordPage />
   if (path.startsWith('/login/')) return <RedirectToLogin />
   if (path === '/app' || path.startsWith('/app/')) return <ProtectedWorkspace />
   if (path === '/enroll') return <RedirectToLogin />

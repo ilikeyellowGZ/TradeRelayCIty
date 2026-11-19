@@ -2,6 +2,7 @@ import { Hono } from 'hono'
 import { createSimulationState, SimulationAccessError, type SimulationCommandStatus } from './simulation/core'
 import { createAuth } from './auth'
 import { authPathAllowed } from './auth-paths'
+import { publicAccountRoutes } from './public-accounts'
 import { MockAiProvider, type AiCandidate } from './ai/provider'
 import { registerHistoryRoutes } from './history/routes'
 import { answerSimulationQuestion, normalizeChatQuestion, type ChatContext } from './chat/simulation'
@@ -10,9 +11,18 @@ import { connectorBrokerRoutes, ownerBrokerRoutes } from './broker/routes'
 import { brokerAiConfig, intentQuestion, requestBrokerIntent, type BrokerAiEnv } from './broker/ai-intent'
 import { requiresUnavailableBrokerData } from './broker/assistant'
 
-type Bindings = { DB: D1Database; ASSETS: { fetch(request: Request): Promise<Response> }; SIMULATION_MODE?: string; APP_BASE_URL?: string; BETTER_AUTH_SECRET?: string; RESEND_API_KEY?: string; EMAIL_FROM?: string } & BrokerAiEnv
+type Bindings = { DB: D1Database; ASSETS: { fetch(request: Request): Promise<Response> }; SIMULATION_MODE?: string; APP_BASE_URL?: string; BETTER_AUTH_SECRET?: string } & BrokerAiEnv
 type Variables = { simulationUser: string }
 const app = new Hono<{ Bindings: Bindings; Variables: Variables }>()
+app.use('*', async (c, next) => {
+  await next()
+  c.header('x-content-type-options', 'nosniff')
+  c.header('x-frame-options', 'DENY')
+  c.header('referrer-policy', 'strict-origin-when-cross-origin')
+  c.header('content-security-policy', "frame-ancestors 'none'; base-uri 'self'; form-action 'self'")
+  if (new URL(c.req.url).protocol === 'https:') c.header('strict-transport-security', 'max-age=31536000')
+  if (c.req.path.startsWith('/api/auth/') || c.req.path.startsWith('/api/account/')) c.header('cache-control', 'no-store')
+})
 const fixture = createSimulationState()
 const allowedUsers = new Set(fixture.users.map((user) => user.id))
 const statuses: SimulationCommandStatus[] = ['pending', 'claimed', 'submitting', 'filled', 'partially_filled', 'rejected', 'expired', 'cancelled', 'unknown']
@@ -29,16 +39,17 @@ app.on(['GET', 'POST'], '/api/auth/*', (c) => {
   const path = c.req.path.slice('/api/auth'.length)
   if (!authPathAllowed(c.req.method, path)) return c.notFound()
   if (c.req.method === 'POST' && c.req.header('origin') !== new URL(c.req.url).origin) return c.json({ error: 'Invalid origin.' }, 403)
-  if (['/sign-up/email', '/send-verification-email', '/request-password-reset'].includes(path) && (!c.env.RESEND_API_KEY || !c.env.EMAIL_FROM)) return c.json({ error: 'Account email delivery is unavailable.' }, 503)
-  return createAuth({ DB: c.env.DB, APP_BASE_URL: c.env.APP_BASE_URL, BETTER_AUTH_SECRET: c.env.BETTER_AUTH_SECRET, RESEND_API_KEY: c.env.RESEND_API_KEY, EMAIL_FROM: c.env.EMAIL_FROM }).handler(c.req.raw)
+  return createAuth({ DB: c.env.DB, APP_BASE_URL: c.env.APP_BASE_URL, BETTER_AUTH_SECRET: c.env.BETTER_AUTH_SECRET }).handler(c.req.raw)
 })
+
+app.route('/api/account', publicAccountRoutes)
 
 app.on('GET', ['/app', '/app/*'], async (c) => {
   if (!c.env.APP_BASE_URL || !c.env.BETTER_AUTH_SECRET) return c.text('Workspace authentication is unavailable.', 503)
   if (!c.req.header('cookie')) return c.redirect('/login', 302)
   try {
     const session = await createAuth({ DB: c.env.DB, APP_BASE_URL: c.env.APP_BASE_URL, BETTER_AUTH_SECRET: c.env.BETTER_AUTH_SECRET }).api.getSession({ headers: c.req.raw.headers })
-    if (!session?.user?.emailVerified) return c.redirect('/login', 302)
+    if (!session?.user) return c.redirect('/login', 302)
     const asset = await c.env.ASSETS.fetch(new Request(new URL('/', c.req.url), c.req.raw))
     const headers = new Headers(asset.headers)
     headers.set('cache-control', 'private, no-store')

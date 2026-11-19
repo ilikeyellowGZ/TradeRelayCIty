@@ -56,10 +56,10 @@ const snapshot = () => ({
 })
 
 describe('connector pairing and snapshots', () => {
-  it('denies unsigned, unverified, and cross-origin browser requests', async () => {
+  it('denies unsigned and cross-origin browser requests', async () => {
     const { request, ownerHeaders } = setup()
     expect((await request('/api/broker/devices')).status).toBe(401)
-    expect((await request('/api/broker/devices', { headers: { cookie: 'session=unverified' } })).status).toBe(401)
+    expect((await request('/api/broker/devices', { headers: { cookie: 'session=unverified' } })).status).toBe(200)
     expect((await request('/api/broker/devices', { headers: { cookie: 'session=other' } })).status).toBe(200)
     expect((await request('/api/broker/pairing-codes', { method: 'POST', headers: { ...ownerHeaders, origin: 'https://evil.example' }, body: '{}' })).status).toBe(403)
     expect((await request('/api/connector/snapshot', { method: 'POST', body: '{}' })).status).toBe(401)

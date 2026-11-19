@@ -1,19 +1,21 @@
 # Validation report
 
-## Public user onboarding implementation — 19 November 2026
+## Public accounts with recovery codes — 19 November 2026
 
-The `feat/public-user-onboarding-clean` worktree contains public email-verified signup, password recovery, verified-user broker authorization, public setup screens, and a Windows connector rebuilt for `https://traderelaycity.service-heyywebb.workers.dev`. This is a source and local release check. The hosted URL still serves the previous read-only release; no public account deployment has been made.
+The isolated `feat/public-user-onboarding-clean` branch implements public username/password accounts without email, eight one-time recovery codes, code-based password reset with session revocation, signed-in code rotation, per-user broker pairing, and a connector built for `https://traderelaycity.service-heyywebb.workers.dev`. The hosted website still serves its prior read-only release; this branch has not been deployed.
 
-- `npm test`: 20 files and 102 tests passed, including real Better Auth SQLite signup/verification/reset flows and two-user broker isolation.
-- `connector/.venv/Scripts/python.exe -m unittest discover -s connector/tests -v`: 39 tests passed, including bundled website origin validation. A Windows asyncio transport cleanup warning appeared after a synthetic HTTP test; the suite exited successfully.
-- `npm run build`: Worker and client bundles succeeded. React Doctor reported no issues in changed React files.
-- `npm run db:migrate:local`: migrations through `0014_public_auth.sql` applied in the isolated worktree.
-- `connector/build-windows.ps1 -WebsiteUrl https://traderelaycity.service-heyywebb.workers.dev`: PyInstaller built a 24,530,234-byte executable and copied it to the public download. The package archive contains `assets/release-site.json`; its SHA-256 is `835e0d6b580f125b2738955bc4fb488ba77e7948d92d1196e9244ef182401ed2`.
-- Local production preview returned HTTP 200 for `/`, `/signup`, `/login`, `/verify-email`, `/forgot-password`, `/reset-password`, and the executable download. `/app` returned 503 because this isolated preview has no `APP_BASE_URL` or `BETTER_AUTH_SECRET` configured; that is the expected fail-closed response. The built `dist` contains no `.dev.vars`.
-- The configured hosted `/api/health` returned HTTP 200 with `BROKER_READ_ONLY` and `isLive:false` on this date.
+### Passed locally
 
-**Pending before public invitation:** Configure a verified `EMAIL_FROM` sender and `RESEND_API_KEY` in the selected Cloudflare environment; apply remote migration 0014; deploy the matching Worker, web assets, and connector; verify two fresh users' email delivery, pairing, isolation, revocation, and a connected demo MT5 snapshot. Browser visual inspection was unavailable because the computer-use browser host was unavailable. Automatic/live trading remains disabled.
+- `npm test`: 20 files, 100 tests passed. Coverage includes Better Auth username sign-in, hashed recovery codes, concurrent code replay denial, code rotation, old-session revocation, route closure, and two-user broker isolation.
+- `npm run db:migrate:local`: migration `0015_account_recovery.sql` applied after earlier migrations.
+- `node scripts/smoke-local-recovery.mjs` against the local Worker and D1: two disposable users registered and signed in; only one saw its paired device; foreign revoke returned 404; own revoke blocked the device token; code rotation, reset, prior-session revocation, and email route closure passed.
+- `npm run build`: Worker and client production bundles succeeded. `npx react-doctor@latest --verbose --scope changed` found no changed-React issues. `npm audit --audit-level=moderate` found zero vulnerabilities after the Vitest update.
+- Connector Python suite: 39 tests passed. `connector/build-windows.ps1 -WebsiteUrl https://traderelaycity.service-heyywebb.workers.dev` built a 24,530,234-byte executable. The PyInstaller archive contains `assets/release-site.json`, and the source, public download, and built website asset have matching SHA-256 `835e0d6b580f125b2738955bc4fb488ba77e7948d92d1196e9244ef182401ed2`.
+- No `.dev.vars` appears in `dist`; the built client includes `_headers` security rules. The hosted `/api/health` returned HTTP 200 with `BROKER_READ_ONLY` and `isLive:false` on this date.
 
+### Pending before inviting recipients
+
+Merge the isolated branch with the active trading work without overwriting concurrent changes; apply migration 0015 to the chosen hosted D1; deploy matching Worker, assets, and connector; test two fresh hosted users' signup, recovery, pairing, isolation, revocation, and a connected demo MT5 snapshot. Browser visual inspection was unavailable because the computer-use browser host was unavailable. Automatic/live order execution remains disabled.
 ### Historical baseline
 
 Updated 7 November 2026. Local checks validate simulation and build boundaries only. No provider, remote Cloudflare, or broker credentials were used.

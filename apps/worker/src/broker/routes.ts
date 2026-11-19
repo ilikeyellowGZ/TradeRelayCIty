@@ -17,7 +17,7 @@ ownerBrokerRoutes.use('*', async (c, next) => {
   let userId: string | undefined
   try {
     const session = await createAuth({ DB: c.env.DB, APP_BASE_URL: c.env.APP_BASE_URL, BETTER_AUTH_SECRET: c.env.BETTER_AUTH_SECRET }).api.getSession({ headers: c.req.raw.headers })
-    userId = session?.user?.emailVerified ? session.user.id : undefined
+    userId = session?.user?.id
   } catch {
     return c.json({ error: 'Session check unavailable.' }, 503)
   }

@@ -4,7 +4,7 @@ Updated 2026-11-19. The repository is an existing React/Vite frontend, Hono Clou
 
 | Capability | Status | Evidence or limit |
 |---|---|---|
-| Public email-verified accounts and protected `/app` | Implemented, locally tested; deployment pending | Signup, verification, reset/session revocation, route allowlist, and verified-session gate passed automated tests; verified sender and remote email flow not configured |
+| Public username accounts and protected `/app` | Implemented, locally tested; deployment pending | No email required; one-time recovery codes, password reset/session revocation, code rotation, and auth route allowlist passed automated tests; remote flow unverified |
 | Local simulation, deterministic HOLD provider, CSV backtest | Implemented, locally tested | No broker order path or performance claim |
 | MT5 native MCP discovery | Implemented, terminal verified | Official Python SDK discovered 107 tools; terminal broker connection was disconnected |
 | Device pairing, revocation, user-scoped snapshot/status API | Implemented, locally tested | Two-user isolation and foreign-record 404 passed automated tests; remote fresh-user pairing and connected-broker upload unverified |
@@ -21,7 +21,7 @@ Updated 2026-11-19. The repository is an existing React/Vite frontend, Hono Clou
 ## Priority order
 
 1. Connect MT5 to the intended FxPro account and validate a real read-only snapshot, including nonempty positions and account type. Fix only observed response-shape differences.
-2. Verify remote owner login, migration 0009, pairing, revocation, and snapshot upload on staging over HTTPS. Do not use the production D1 placeholder.
+2. Verify remote public signup, recovery codes, migration 0015, pairing, revocation, and snapshot upload on staging over HTTPS. Do not use the production D1 placeholder.
 3. Add account-scoped broker history, pending orders, symbol specifications, candles, and analytics from discovered MCP schemas. Keep sync timestamps and failures explicit.
 4. Configure and verify one supported OpenAI, Anthropic, or xAI model for the optional question classifier; then extend provider-backed explanations only after evaluation against grounded broker records. No provider call has been verified with a real key.
 5. Build the native tester job queue and UI after an EA path and Strategy Tester configuration are available. Store reports with strategy version, costs, and train/validation dates; compare results without auto deployment.

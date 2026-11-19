@@ -1,6 +1,6 @@
 # Windows connector development
 
-The source package is in `connector/`. It provides a Tk setup window, protected local configuration, Windows Credential Manager storage, a SQLite command journal, and a read-only official MCP client. The source and public Windows app support owner pairing and read-only snapshot upload. The connector cannot submit broker orders.
+The source package is in `connector/`. It provides a Tk setup window, protected local configuration, Windows Credential Manager storage, a SQLite command journal, and a read-only official MCP client. The source and public Windows app support per-user pairing and read-only snapshot upload. The connector cannot submit broker orders.
 
 ## Build
 

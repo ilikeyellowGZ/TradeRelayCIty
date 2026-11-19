@@ -1,0 +1,11 @@
+.security-panel { max-width: 760px; padding: 32px; }
+.security-panel h2 { margin: 12px 0; font-size: 32px; }
+.security-panel > p { max-width: 60ch; line-height: 1.6; }
+.security-panel form { display: grid; gap: 12px; max-width: 440px; margin-top: 28px; }
+.security-panel form input { min-height: 48px; padding: 10px 14px; border: 1px solid var(--border); border-radius: 8px; color: inherit; background: transparent; font: inherit; }
+.security-panel form button { justify-self: start; }
+.security-codes { margin-top: 24px; padding: 20px; border: 1px solid var(--cream-100); border-radius: 12px; }
+.security-codes ol { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 20px; padding-left: 24px; }
+.security-codes code { font: 500 14px/1.6 "JetBrains Mono", monospace; overflow-wrap: anywhere; }
+.security-error { color: var(--negative); }
+@media (max-width: 620px) { .security-panel { padding: 20px; } .security-codes ol { grid-template-columns: 1fr; } }

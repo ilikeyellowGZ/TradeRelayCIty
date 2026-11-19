@@ -16,6 +16,7 @@ import { BrokerPage } from './features/broker/BrokerPage'
 import { BrokerAssistantPage } from './features/broker/BrokerAssistantPage'
 import { getConnectionStatus, type ConnectorDevice } from './features/broker/connectionStatus'
 import { authClient } from './auth-client'
+import { RecoveryCodesPanel } from './features/account/RecoveryCodesPanel'
 
 type SimUser = { id: string; name: string; role: 'owner' | 'member' }
 type SimAccount = { id: string; ownerId: string; label: string; broker: string; environment: 'DEMO'; mode: 'SIMULATED'; connected: boolean; balance: { amount: number; currency: string }; equity: number; dailyPnl: number; positions: { id: string; symbol: string; description: string; side: 'BUY' | 'SELL'; volume: number; entry: number; market: number; pnl: number; source: 'SIMULATED' }[]; events: { id: string; message: string }[]; latestDecision: { decision: string; rationale: string } }
@@ -30,6 +31,7 @@ const navItems = [
   { label: 'Backtests', icon: FlaskConical },
   { label: 'Risk Settings', icon: ShieldCheck },
   { label: 'Notifications', icon: Bell },
+  { label: 'Security', icon: ShieldCheck },
 ]
 
 const activities = [
@@ -116,7 +118,7 @@ function Sidebar({ active, onNavigate, open, onClose, isMobile, displayName }: {
         </div>
         <div className="sidebar-user">
           <div className="avatar">{displayName.trim().slice(0, 2).toUpperCase()}</div><div className="user-copy"><strong>{displayName}</strong><span>Personal workspace</span></div>
-          <button className="user-menu icon-button" type="button" disabled aria-label="Profile menu unavailable in preview" title="Profile actions need the application backend"><MoreHorizontal size={18} /></button>
+          <button className="user-menu icon-button" type="button" onClick={() => { onNavigate('Security'); onClose() }} aria-label="Manage account security" title="Manage recovery codes"><MoreHorizontal size={18} /></button>
         </div>
       </aside>
     </>
@@ -149,7 +151,7 @@ function SectionPreview({ active }: { active: string }) {
 
 function App() {
   const reduceMotion = useReducedMotion()
-  const [active, setActive] = useState('Overview')
+  const [active, setActive] = useState(() => window.location.pathname === '/app/security' ? 'Security' : 'Overview')
   const [theme, setTheme] = useState<'light' | 'dark'>(() => window.localStorage.getItem('trc-theme') === 'light' ? 'light' : 'dark')
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [isMobile, setIsMobile] = useState(() => window.matchMedia('(max-width: 1023px)').matches)
@@ -410,6 +412,9 @@ function App() {
             </div>
 
             <footer className="page-footer"><span><span className="footer-mark"><BotifyMark compact /></span>TRADERELAYCITY</span><span>SIMULATION <i /> LIVE MODE DISABLED</span><span>Built for clarity.</span></footer>
+          </> : active === 'Security' ? <>
+            <div className="page-intro page-intro--simple"><div><div className="overline"><span className="overline-line" />YOUR ACCOUNT</div><h1>Security<span className="title-period">.</span></h1><p className="page-subtitle">Keep a private way back into your workspace.</p></div></div>
+            <RecoveryCodesPanel />
           </> : brokerPage ? <>
             <BrokerPage focus={active === 'Positions' ? 'positions' : 'accounts'} />
             <footer className="page-footer"><span><span className="footer-mark"><BotifyMark compact /></span>TRADERELAYCITY</span><span>MT5 READ ONLY <i /> ORDER EXECUTION DISABLED</span><span>Built for clarity.</span></footer>

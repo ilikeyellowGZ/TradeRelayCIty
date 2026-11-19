@@ -1,5 +1,7 @@
 # Public Accounts and Pairing Implementation Plan
 
+> **Superseded account flow:** The user chose recovery codes with no email on 19 November 2026. The email and Resend tasks below are historical and must not be executed. Follow [the recovery-code onboarding revision](2026-11-19-recovery-code-onboarding.md) for the current account flow. The per-user broker scoping and connector-origin tasks remain relevant.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Let a new person create a verified TradeRelayCity account, pair their own Windows connector, and see only their own read-only MT5 account on the shared website.

@@ -116,3 +116,8 @@ The landing uses fluid `clamp(16px, 5vw, 80px)` gutters and no overall width cap
 ### Private access form
 - **Structure:** Full-height desktop split with an editorial image panel and a locally width-limited form panel. On mobile, the form takes priority and the art becomes a compact header. The form asks for username and password only.
 - **States:** Password hidden/shown, validation error, service unavailable and pending. Inputs retain visible labels, autocomplete and paste. A server session cookie grants workspace access after successful sign-in; the Worker checks that session before serving `/app`.
+
+### Public account and recovery forms
+- Signup and recovery reuse the access split, self-hosted type, input scale, and focus styles. Signup asks for name, username, and password. No email field appears.
+- After signup, eight one-time recovery codes appear in a copyable grid with a save acknowledgement before the primary sign-in action. Codes wrap at phone widths without causing page overflow. The same code pattern is used on the signed-in Security page when codes are rotated.
+- Recovery asks for username, one code, and a new password. A used code invalidates previous sessions. Error and pending states use the existing access form treatments.

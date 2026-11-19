@@ -24,7 +24,7 @@ export function LandingPage() {
               <h1 id="landing-title">Your trading.<br /><span>A clearer view.</span></h1>
               <p className="landing-lead">Designed for forex and cryptocurrency markets. Bring your MT5 account context, trading decisions and history into one considered workspace.</p>
               <div className="landing-actions"><a className="public-button public-button--large" href="/signup">Create your account <ArrowRight aria-hidden="true" size={22} /></a><a className="public-button public-button--secondary public-button--large" href="/downloads/TradeRelayCity-Connector-Windows.exe" download="TradeRelayCity-Connector-Windows.exe"><Download aria-hidden="true" size={20} />Download app for Windows</a><a className="public-text-link" href="#how-it-works">Explore the workflow</a></div>
-              <p className="landing-access-note">Sign up, verify your email, then pair your Windows connector.</p>
+              <p className="landing-access-note">Sign up, save your recovery codes, then pair your Windows connector.</p>
               <p className="landing-download-note">Connector preview: pair your device and sync read-only MT5 snapshots. Trading is disabled. Windows may block this unsigned preview.</p>
             </div>
             <div className="landing-art">
