@@ -36,7 +36,7 @@ class FakeBroker:
             raise self.send_error
         return self.send_result
 
-    async def reconcile(self, _comment, _account_binding):
+    async def reconcile(self, _command):
         self.history_calls += 1
         return self.evidence
 
@@ -84,7 +84,7 @@ class DemoExecutionTests(unittest.TestCase):
         self.assertEqual(self.broker.send_calls, [])
 
     def test_valid_demo_submit_persists_intent_and_uses_stop(self):
-        self.broker.evidence = ReconciliationEvidence("FxPro|FxPro-Demo|12345", 1, D("0.09"), False)
+        self.broker.evidence = ReconciliationEvidence("FxPro|FxPro-Demo|12345", 1, D("0.09"), False, True)
         result = self.run_submit()
         self.assertEqual(result.status, "filled")
         self.assertEqual(len(self.broker.send_calls), 1)
@@ -102,15 +102,22 @@ class DemoExecutionTests(unittest.TestCase):
         self.assertEqual(len(self.broker.send_calls), 1)
 
     def test_reconciliation_requires_exact_binding_and_one_order(self):
-        self.broker.evidence = ReconciliationEvidence("other|server|login", 1, D("0.09"), False)
+        self.broker.evidence = ReconciliationEvidence("other|server|login", 1, D("0.09"), False, True)
         self.assertEqual(self.run_submit().status, "unknown")
-        self.broker.evidence = ReconciliationEvidence("FxPro|FxPro-Demo|12345", 2, D("0.09"), False)
+        self.broker.evidence = ReconciliationEvidence("FxPro|FxPro-Demo|12345", 2, D("0.09"), False, True)
         self.assertEqual(asyncio.run(self.executor.reconcile(self.command, self.broker)).status, "unknown")
 
     def test_partial_fill_is_recorded_without_retry(self):
-        self.broker.evidence = ReconciliationEvidence("FxPro|FxPro-Demo|12345", 1, D("0.04"), False)
+        self.broker.evidence = ReconciliationEvidence("FxPro|FxPro-Demo|12345", 1, D("0.04"), False, True)
         self.assertEqual(self.run_submit().status, "partially_filled")
         self.assertEqual(len(self.broker.send_calls), 1)
+
+    def test_fill_without_verified_broker_stop_stays_unknown(self):
+        self.broker.evidence = ReconciliationEvidence("FxPro|FxPro-Demo|12345", 1, D("0.09"), False, False)
+        outcome = self.run_submit()
+        self.assertEqual(outcome.status, "unknown")
+        self.assertIn("protective stop", outcome.reason)
+        self.assertEqual(self.journal.unresolved()[0]["status"], "unknown")
 
     def test_concurrent_claims_submit_the_same_command_only_once(self):
         class GatedBroker(FakeBroker):
@@ -127,7 +134,7 @@ class DemoExecutionTests(unittest.TestCase):
                 return await super().preflight(command)
 
         broker = GatedBroker(self.account, self.contract, self.candidate)
-        broker.evidence = ReconciliationEvidence("FxPro|FxPro-Demo|12345", 1, D("0.10"), False)
+        broker.evidence = ReconciliationEvidence("FxPro|FxPro-Demo|12345", 1, D("0.10"), False, True)
 
         async def submit_both():
             first = asyncio.create_task(self.executor.submit(self.command, broker))
@@ -186,7 +193,7 @@ class DemoExecutionTests(unittest.TestCase):
                 return await super().preflight(command)
 
         broker = GatedBroker(self.account, self.contract, self.candidate)
-        broker.evidence = ReconciliationEvidence("FxPro|FxPro-Demo|12345", 1, self.command.requested_volume, False)
+        broker.evidence = ReconciliationEvidence("FxPro|FxPro-Demo|12345", 1, self.command.requested_volume, False, True)
         other = replace(self.command, command_id="cmd-002", idempotency_key="idem-002")
 
         async def submit_both():

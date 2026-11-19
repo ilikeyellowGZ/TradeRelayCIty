@@ -102,7 +102,7 @@ export function BrokerPage({ focus = 'accounts' }: { focus?: 'accounts' | 'posit
   const activeDevices = devices.filter((device) => device.revokedAt === null)
   return <section className="broker-page" aria-labelledby="broker-title">
     <div className="page-intro page-intro--simple broker-intro">
-      <div><div className="overline"><span className="overline-line" />CONNECTED WORKSPACE</div><h1 id="broker-title">{focus === 'positions' ? 'Broker positions' : 'Broker accounts'}<span className="title-period">.</span></h1><p className="page-subtitle">MT5 account snapshots from your paired Windows connector. Read only; order execution is disabled.</p></div>
+      <div><div className="overline"><span className="overline-line" />CONNECTED WORKSPACE</div><h1 id="broker-title">{focus === 'positions' ? 'Broker positions' : 'Broker accounts'}<span className="title-period">.</span></h1><p className="page-subtitle">MT5 account snapshots from your paired Windows connector. This page is read only; DEMO bot orders start from the armed Windows connector.</p></div>
       <button className="pill-button pill-button--secondary broker-refresh" type="button" onClick={() => void refresh()} disabled={loading || busy}><RefreshCw size={17} />Refresh</button>
     </div>
 

@@ -1,6 +1,6 @@
 # Windows connector development
 
-The source package is in `connector/`. It provides a Tk setup window, protected local configuration, Windows Credential Manager storage, a SQLite command journal, and a read-only official MCP client. The source and public Windows app support owner pairing and read-only snapshot upload. The connector cannot submit broker orders.
+The source package is in `connector/`. It provides a Tk setup window, protected local configuration, Windows Credential Manager storage, a SQLite command journal, owner pairing, and MT5 snapshot upload. A separate, explicitly armed EURUSD demo bot path is described in [MT5 demo bot test](demo-bot.md). Live-account orders remain disabled.
 
 ## Build
 
@@ -16,7 +16,7 @@ The executable is emitted under `connector/release-dist/` and copied to `public/
 
 ## Website download
 
-The public landing page has a **Download app for Windows** button. It downloads `TradeRelayCity-Connector-Windows.exe` directly without a website login or ZIP extraction. The executable and its window use the web app's candlestick logo. This is a read-only connector, not an installer.
+The public landing page has a **Download app for Windows** button. It downloads `TradeRelayCity-Connector-Windows.exe` directly without a website login or ZIP extraction. The executable and its window use the web app's candlestick logo. It is a portable connector with a session-armed demo bot, not an installer.
 
 To refresh the website download after connector changes, rebuild and then build the website from the project root:
 
@@ -47,3 +47,7 @@ The source connector now pairs with the owner through `/api/connector/pair` and 
 The connector runs MT5's required `get_workspace_info` pre-flight before its other tool calls. A disconnected terminal, missing broker identity, unknown account type, or changed broker/server/login blocks upload. The website shows the last observation time and labels stale values. The public executable was rebuilt after this update and its integrity and built-site hash were checked. Its executable has not yet been launched interactively.
 
 Pairing and snapshot upload are source-implemented and locally tested; remote staging and a connected broker account have not been verified end to end. Open-position field mapping has only synthetic test coverage because the local terminal currently reports no open positions. Pending orders, closed deals, execution commands, broker reconciliation, and Strategy Tester jobs are not connected. Demo and live order execution stay disabled. Closing the connector stops local work but does not close MT5 positions.
+
+## 2026-11-19 guarded demo bot update
+
+The separately armed DEMO bot and its validation status are recorded in [MT5 demo bot test](demo-bot.md) and [demo bot validation](validation-2026-11-19-demo-bot.md). This local execution path does not enable live-account entries or turn the website into an order entry screen.

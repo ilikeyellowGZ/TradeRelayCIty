@@ -21,6 +21,7 @@ class SqliteD1 {
     this.sqlite.exec(readFileSync(new URL('../../../../migrations/0010_broker_account_metrics.sql', import.meta.url), 'utf8'))
     this.sqlite.exec(readFileSync(new URL('../../../../migrations/0011_connector_status.sql', import.meta.url), 'utf8'))
     this.sqlite.exec(readFileSync(new URL('../../../../migrations/0012_broker_ai_usage.sql', import.meta.url), 'utf8'))
+    this.sqlite.exec(readFileSync(new URL('../../../../migrations/0013_broker_demo_decisions.sql', import.meta.url), 'utf8'))
   }
 
   prepare(sql: string) {
@@ -142,5 +143,35 @@ describe('connector pairing and snapshots', () => {
       expect((await request(path, { method: 'POST', headers: ownerHeaders, body: JSON.stringify({ question: 'How much is in my account?' }) })).status).toBe(429)
       expect(provider).toHaveBeenCalledTimes(1)
     } finally { provider.mockRestore() }
+  })
+
+  it('requires a fresh bound demo snapshot and records the AI opinion', async () => {
+    const { db, request, ownerHeaders } = setup({ AI_PROVIDER: 'groq', AI_MODEL: 'openai/gpt-oss-20b', GROQ_API_KEY: 'test-only-key' })
+    const codeResponse = await request('/api/broker/pairing-codes', { method: 'POST', headers: ownerHeaders, body: '{}' })
+    const { code } = await codeResponse.json() as { code: string }
+    const pair = await request('/api/connector/pair', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ code, name: 'Demo PC' }) })
+    const { token, deviceId } = await pair.json() as { token: string; deviceId: string }
+    const bearerHeaders = { authorization: `Bearer ${token}`, 'content-type': 'application/json' }
+    const current = snapshot()
+    current.positions = []
+    expect((await request('/api/connector/snapshot', { method: 'POST', headers: bearerHeaders, body: JSON.stringify(current) })).status).toBe(200)
+    const { accounts } = await (await request('/api/broker/accounts', { headers: ownerHeaders })).json() as { accounts: Array<{ id: string }> }
+    const bars = Array.from({ length: 20 }, (_, index) => ({ time: new Date(Date.now() - (21 - index) * 60_000).toISOString(), open: 1.1, high: 1.101, low: 1.099, close: 1.1 }))
+    const body = { accountId: accounts[0].id, snapshotId: current.observedAt, setupTime: new Date(Date.now() - 60_000).toISOString(), candidate: { symbol: 'EURUSD', direction: 'BUY', entry: 1.1, stop: 1.095, target: 1.11, strategyVersion: '0.1.0' }, marketSnapshot: { signalBars: bars, higherBars: bars } }
+    expect((await request('/api/connector/demo/opinion', { method: 'POST', body: JSON.stringify(body) })).status).toBe(401)
+    expect((await request('/api/connector/demo/opinion', { method: 'POST', headers: bearerHeaders, body: JSON.stringify({ ...body, snapshotId: 'stale' }) })).status).toBe(409)
+    const provider = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(JSON.stringify({
+      id: 'ai-1', choices: [{ finish_reason: 'stop', message: { content: JSON.stringify({ decision: 'BUY', symbol: 'EURUSD', entry: 1.1, stop: 1.095, target: 1.11, rationale: 'Candidate confirmed', invalidation: 'Stop reached', modelScore: 0.7 }) } }],
+      usage: { prompt_tokens: 200, completion_tokens: 30 },
+    }), { status: 200 }))
+    try {
+      const response = await request('/api/connector/demo/opinion', { method: 'POST', headers: bearerHeaders, body: JSON.stringify(body) })
+      expect(response.status).toBe(200)
+      expect(await response.json()).toMatchObject({ approved: true, decision: 'BUY', symbol: 'EURUSD', provider: 'groq' })
+      expect(db.sqlite.prepare('SELECT side,provider FROM broker_demo_decisions').get()).toMatchObject({ side: 'BUY', provider: 'groq' })
+      expect(provider).toHaveBeenCalledTimes(1)
+    } finally { provider.mockRestore() }
+    expect((await request(`/api/broker/devices/${deviceId}`, { method: 'DELETE', headers: ownerHeaders })).status).toBe(200)
+    expect((await request('/api/connector/demo/opinion', { method: 'POST', headers: bearerHeaders, body: JSON.stringify(body) })).status).toBe(401)
   })
 })

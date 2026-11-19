@@ -3,6 +3,8 @@ import { createAuth } from '../auth'
 import { digestSecret, normalizeSnapshot, randomDeviceToken, randomPairingCode } from './model'
 import { answerBrokerQuestion, requiresUnavailableBrokerData } from './assistant'
 import { brokerAiConfig, intentQuestion, requestBrokerIntent, type BrokerAiEnv } from './ai-intent'
+import { requestRealProvider } from '../ai/real-providers'
+import { normalizeDemoDecisionRequest } from './demo-decision'
 
 type Bindings = { DB: D1Database; APP_BASE_URL?: string; BETTER_AUTH_SECRET?: string } & BrokerAiEnv
 type Variables = { ownerId: string; deviceId: string; deviceOwnerId: string }
@@ -190,6 +192,49 @@ connectorBrokerRoutes.use('/status', async (c, next) => {
   c.set('deviceId', device.id)
   c.set('deviceOwnerId', device.ownerId)
   await next()
+})
+
+connectorBrokerRoutes.use('/demo/*', async (c, next) => {
+  const token = /^Bearer ([A-Za-z0-9_-]{43})$/.exec(c.req.header('authorization') ?? '')?.[1]
+  if (!token) return c.json({ error: 'Device credential required.' }, 401)
+  const digest = await digestSecret(token)
+  const device = await c.env.DB.prepare('SELECT id,owner_id AS ownerId FROM connector_devices WHERE token_digest=? AND revoked_at IS NULL').bind(digest).first<{ id: string; ownerId: string }>()
+  if (!device) return c.json({ error: 'Device credential invalid or revoked.' }, 401)
+  c.set('deviceId', device.id)
+  c.set('deviceOwnerId', device.ownerId)
+  await next()
+})
+
+connectorBrokerRoutes.post('/demo/opinion', async (c) => {
+  const raw = await c.req.text()
+  if (raw.length > 16_384) return c.json({ error: 'Decision request too large.' }, 413)
+  let input: ReturnType<typeof normalizeDemoDecisionRequest>
+  try { input = normalizeDemoDecisionRequest(JSON.parse(raw)) } catch { return c.json({ error: 'Invalid demo decision request.' }, 400) }
+  const now = Date.now()
+  const account = await c.env.DB.prepare('SELECT a.id,s.observed_at AS observedAt FROM broker_accounts a INNER JOIN broker_snapshots s ON s.account_id=a.id WHERE a.id=? AND a.owner_id=? AND a.device_id=? AND a.environment=?').bind(input.accountId, c.get('deviceOwnerId'), c.get('deviceId'), 'DEMO').first<{ id: string; observedAt: string }>()
+  if (!account) return c.json({ error: 'Bound demo account snapshot required.' }, 403)
+  const snapshotAge = now - Date.parse(account.observedAt)
+  if (!Number.isFinite(snapshotAge) || snapshotAge < 0 || snapshotAge > 30_000 || input.snapshotId !== account.observedAt || now - Date.parse(input.setupTime) > 8 * 15 * 60_000 || Date.parse(input.setupTime) > now) return c.json({ error: 'Demo market or account snapshot is stale.' }, 409)
+  if (c.env.AI_PROVIDER !== 'groq' && c.env.AI_PROVIDER !== 'gemini') return c.json({ error: 'Demo AI opinion unavailable.' }, 503)
+  const day = new Date().toISOString().slice(0, 10)
+  const reserved = await c.env.DB.prepare('INSERT INTO broker_ai_daily_usage(owner_id,day_utc,request_count) VALUES(?,?,1) ON CONFLICT(owner_id,day_utc) DO UPDATE SET request_count=request_count+1 WHERE request_count<30 RETURNING request_count').bind(c.get('deviceOwnerId'), day).first()
+  if (!reserved) return c.json({ error: 'Daily AI limit reached.' }, 429)
+  try {
+    const result = await requestRealProvider(c.env as Parameters<typeof requestRealProvider>[0], {
+      snapshotId: input.snapshotId,
+      candidate: input.candidate,
+      marketSnapshot: input.marketSnapshot,
+      historicalSummary: { strategyVersion: '0.1.0', setupTime: input.setupTime },
+    })
+    const approved = result.opinion.decision === input.candidate.direction
+    const decisionId = crypto.randomUUID()
+    const expiresAt = Math.min(now + 60_000, Date.parse(input.setupTime) + 8 * 15 * 60_000)
+    await c.env.DB.prepare('INSERT INTO broker_demo_decisions(id,owner_id,account_id,symbol,side,setup_time,provider,model,request_id,rationale,created_at,expires_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)').bind(decisionId, c.get('deviceOwnerId'), account.id, input.candidate.symbol, approved ? input.candidate.direction : 'HOLD', input.setupTime, result.provider, result.model, result.requestId, result.opinion.rationale, now, expiresAt).run()
+    c.header('cache-control', 'no-store')
+    return c.json({ decisionId, approved, decision: approved ? input.candidate.direction : 'HOLD', symbol: input.candidate.symbol, expiresAt: new Date(expiresAt).toISOString(), provider: result.provider, model: result.model, rationale: result.opinion.rationale })
+  } catch {
+    return c.json({ error: 'Demo AI opinion unavailable.' }, 502)
+  }
 })
 
 connectorBrokerRoutes.post('/status', async (c) => {

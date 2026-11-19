@@ -1,4 +1,4 @@
-"""Fail-closed demo entry state machine. No production path invokes this module yet."""
+"""Fail-closed demo entry state machine."""
 from __future__ import annotations
 
 import hashlib
@@ -36,6 +36,7 @@ class ReconciliationEvidence:
     matching_order_count: int
     filled_volume: Decimal
     rejected: bool
+    stop_protected: bool = False
 
 
 @dataclass(frozen=True)
@@ -48,7 +49,7 @@ class DemoBroker(Protocol):
     async def preflight(self, command: DemoCommand) -> tuple[str, AccountRisk, ContractSpec, Candidate]: ...
     async def check_market_order(self, payload: dict) -> bool: ...
     async def send_market_order(self, payload: dict) -> dict: ...
-    async def reconcile(self, comment: str, account_binding: str) -> ReconciliationEvidence | None: ...
+    async def reconcile(self, command: DemoCommand) -> ReconciliationEvidence | None: ...
 
 
 class DemoExecutor:
@@ -134,13 +135,15 @@ class DemoExecutor:
         if existing.status in ("filled", "partially_filled", "rejected"):
             return existing
         try:
-            evidence = await broker.reconcile(command.comment, command.account_binding)
+            evidence = await broker.reconcile(command)
         except Exception:
             return ExecutionOutcome("unknown", "Broker history unavailable")
         if evidence is None or evidence.account_binding != command.account_binding or evidence.matching_order_count != 1 or not evidence.filled_volume.is_finite():
             return ExecutionOutcome("unknown", "Broker evidence is absent or ambiguous")
         if evidence.filled_volume < 0 or evidence.filled_volume > command.requested_volume:
             return ExecutionOutcome("unknown", "Broker filled volume is inconsistent")
+        if evidence.filled_volume > 0 and not evidence.stop_protected:
+            return ExecutionOutcome("unknown", "Fill detected but protective stop is unverified; inspect MT5 immediately")
         if evidence.filled_volume == command.requested_volume:
             status = "filled"
         elif evidence.filled_volume > 0:

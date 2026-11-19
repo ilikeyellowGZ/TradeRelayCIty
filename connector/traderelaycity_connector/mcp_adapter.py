@@ -2,8 +2,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import asyncio
 import json
+from urllib.error import HTTPError, URLError
 from urllib.parse import urlparse
+from urllib.request import ProxyHandler, Request, build_opener
 
 READ_ONLY_TOOLS = frozenset({
     "get_trading_account_info", "get_trading_open_positions", "get_trading_history_orders",
@@ -81,17 +84,25 @@ async def inspect_mt5(endpoint: str, bearer_key: str) -> McpDiagnostics:
         except (Exception, BaseExceptionGroup) as error:
             # Probe with a bounded standard initialize POST; a GET can be an
             # infinite SSE stream and must never be used for this diagnostic.
-            try:
-                response = await http_client.post(endpoint, headers={"Accept": "application/json, text/event-stream"}, json={
+            def probe_status() -> int | None:
+                data = json.dumps({
                     "jsonrpc": "2.0", "id": 1, "method": "initialize",
                     "params": {"protocolVersion": "2025-03-26", "capabilities": {}, "clientInfo": {"name": "TradeRelayCity", "version": "0.1"}},
-                })
-            except httpx2.HTTPError:
-                pass
-            else:
-                if response.status_code == 401:
-                    raise ValueError(
-                        "MT5 rejected the MCP key (HTTP 401). Copy the current terminal MCP API key "
-                        "from MT5 > Tools > Options > MCP, save it in the connector, and retry."
-                    ) from error
+                }).encode("utf-8")
+                request = Request(endpoint, data=data, method="POST", headers={"Authorization": f"Bearer {bearer_key}", "Content-Type": "application/json", "Accept": "application/json, text/event-stream"})
+                try:
+                    with build_opener(ProxyHandler({})).open(request, timeout=5) as response:
+                        return response.status
+                except HTTPError as response:
+                    status = response.code
+                    response.close()
+                    return status
+                except (URLError, TimeoutError):
+                    return None
+
+            if await asyncio.to_thread(probe_status) == 401:
+                raise ValueError(
+                    "MT5 rejected the MCP key (HTTP 401). Copy the current terminal MCP API key "
+                    "from MT5 > Tools > Options > MCP, save it in the connector, and retry."
+                ) from error
             raise
