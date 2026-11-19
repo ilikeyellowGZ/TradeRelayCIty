@@ -39,6 +39,18 @@ class BrokerSnapshotTests(unittest.TestCase):
         result = normalize_mt5_snapshot(account(state="synchronized"), {"positions": [], "orders": []})
         self.assertEqual(result["account"]["environment"], "DEMO")
 
+    def test_normalizes_current_mcp_position_shape_without_inventing_stops(self):
+        trades = {"positions": [{
+            "position_id": 87, "action": "sell", "symbol": "USDJPY", "volume": 0.01,
+            "price_open": 159.8, "price_last": 159.9, "profit": -1.2,
+        }], "orders": []}
+        result = normalize_mt5_snapshot(account(), trades)
+        self.assertEqual(result["positions"][0], {
+            "ticket": "87", "symbol": "USDJPY", "side": "SELL", "volume": 0.01,
+            "priceOpen": 159.8, "priceCurrent": 159.9, "profit": -1.2,
+            "stop": None, "target": None,
+        })
+
     def test_missing_margin_field_blocks_incomplete_snapshot(self):
         info = account()
         del info["account"]["margin_free"]

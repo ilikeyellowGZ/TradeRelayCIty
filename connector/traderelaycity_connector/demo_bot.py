@@ -147,6 +147,18 @@ class McpDemoBroker:
             raise DemoBotBlocked(f"MT5 {name} is unavailable")
         return _payload(await self._session.call_tool(name, args), name)
 
+    async def _checked_order(self, payload: dict) -> dict | None:
+        check = await self._call("trade_check_market_order", {key: value for key, value in payload.items() if key != "comment"})
+        result = check.get("result")
+        if check.get("ok") is not True or not isinstance(result, dict) or result.get("retcode") != 0:
+            return None
+        try:
+            margin = _decimal(result.get("margin"), "checked margin", True)
+            margin_free = _decimal(result.get("margin_free"), "checked free margin")
+        except DemoBotBlocked:
+            return None
+        return result if margin_free >= 0 and margin > 0 else None
+
     async def snapshot(self) -> dict:
         info = await self._call("get_trading_account_info", {})
         trades = await self._call("get_trading_open_positions", {})
@@ -199,9 +211,8 @@ class McpDemoBroker:
         entry = ask if signal.direction == "BUY" else bid
         if abs(entry - D(str(signal.entry_context))) > D("0.00010"):
             raise DemoBotBlocked("Price has not retraced to the strategy entry")
+        point = _decimal(item.get("point"), "point", True)
         tick_size = _decimal(item.get("tick_size"), "tick size")
-        if tick_size <= 0:
-            raise DemoBotBlocked("Broker tick size is unavailable")
         stop = D(str(signal.stop))
         adverse_close = stop - D("0.00005") if signal.direction == "BUY" else stop + D("0.00005")
         loss = await self._call("trade_order_calc_profit", {
@@ -216,14 +227,28 @@ class McpDemoBroker:
             raise DemoBotBlocked("Broker account-currency risk calculations are unavailable")
         per_lot_loss = -_decimal(loss.get("profit"), "one-lot stop loss")
         per_lot_margin = _decimal(margin.get("margin"), "one-lot margin")
-        if per_lot_loss <= 0 or per_lot_margin <= 0:
-            raise DemoBotBlocked("Broker returned zero or invalid loss/margin; entry blocked")
+        if per_lot_loss <= 0:
+            raise DemoBotBlocked("Broker returned zero or invalid loss; entry blocked")
+        minimum_volume = _decimal(item.get("volume_min"), "minimum volume", True)
+        if tick_size <= 0 or per_lot_margin <= 0:
+            checked = await self._checked_order({
+                "symbol": SYMBOL, "type": signal.direction.lower(), "volume": float(minimum_volume),
+                "sl": float(stop), "tp": float(signal.target),
+            })
+            if checked is None:
+                raise DemoBotBlocked("Broker tick size or margin is unavailable and the minimum order check failed")
+            if per_lot_margin <= 0:
+                per_lot_margin = _decimal(checked.get("margin"), "checked margin", True) / minimum_volume
+            if tick_size <= 0:
+                # This broker reports zero tick size. The point is only a sizing unit;
+                # the broker check above verifies that the actual stop is accepted.
+                tick_size = point
         distance = abs(entry - stop) + D("0.00005")
         tick_value = per_lot_loss * tick_size / distance
-        stop_level = _decimal(item.get("trade_stops_level"), "stop level") * _decimal(item.get("point"), "point", True)
-        freeze_level = _decimal(item.get("trade_freeze_level"), "freeze level") * _decimal(item.get("point"), "point", True)
+        stop_level = _decimal(item.get("trade_stops_level"), "stop level") * point
+        freeze_level = _decimal(item.get("trade_freeze_level"), "freeze level") * point
         contract = ContractSpec(SYMBOL, currency, tick_size, tick_value,
-                                _decimal(item.get("volume_min"), "minimum volume", True),
+                                minimum_volume,
                                 _decimal(item.get("volume_max"), "maximum volume", True),
                                 _decimal(item.get("volume_step"), "volume step", True),
                                 stop_level, freeze_level, per_lot_margin)
@@ -248,8 +273,7 @@ class McpDemoBroker:
 
     async def check_market_order(self, payload: dict) -> bool:
         await self.snapshot()
-        check = await self._call("trade_check_market_order", {key: value for key, value in payload.items() if key != "comment"})
-        return check.get("ok") is True and check.get("retcode") in (0, 10009)
+        return await self._checked_order(payload) is not None
 
     async def send_market_order(self, payload: dict) -> dict:
         await self.snapshot()
@@ -272,8 +296,10 @@ class McpDemoBroker:
         if len(matches) != 1:
             return None
         order = matches[0]
-        ticket = str(order.get("ticket", ""))
-        related = [item for item in deals if isinstance(item, dict) and str(item.get("order", "")) == ticket]
+        ticket = order.get("order_id", order.get("ticket"))
+        if ticket in (None, "", 0):
+            return None
+        related = [item for item in deals if isinstance(item, dict) and str(item.get("order_id", item.get("order", ""))) == str(ticket)]
         volume = sum((_decimal(item.get("volume"), "deal volume") for item in related), D(0))
         rejected = str(order.get("state", "")).lower() in ("rejected", "canceled", "cancelled")
         protected = any(position["symbol"] == command.symbol and position["side"] == command.side and position["stop"] is not None and abs(D(str(position["stop"])) - command.stop) <= D("0.00001") for position in snapshot["positions"])

@@ -9,7 +9,7 @@ from datetime import datetime, timedelta, timezone
 from decimal import Decimal as D
 
 from traderelaycity_connector.demo_bot import DemoBotBlocked, McpDemoBroker, _bars, _quote_utc, run_demo_cycle
-from traderelaycity_connector.demo_execution import ReconciliationEvidence
+from traderelaycity_connector.demo_execution import DemoCommand, ReconciliationEvidence
 from traderelaycity_connector.journal import Journal
 from traderelaycity_connector.risk import AccountRisk, Candidate, ContractSpec
 from traderelaycity_connector.strategy import Candle, CandidateSignal, Evaluation
@@ -25,6 +25,9 @@ class FakeMcpBroker(McpDemoBroker):
         )}
         self.loss = -50
         self.tick_size = 0.0001
+        self.calculated_margin = 1000
+        self.check_result = {"ok": True, "result": {"retcode": 0, "margin": 0.52, "margin_free": 9999}}
+        self.history = {"orders": [], "deals": []}
         self.permission = True
         self.calls = []
 
@@ -38,7 +41,7 @@ class FakeMcpBroker(McpDemoBroker):
         if name == "get_trading_open_positions":
             return {"positions": [], "orders": []}
         if name == "get_trading_history_orders":
-            return {"orders": [], "deals": []}
+            return self.history
         if name == "get_marketwatch_symbols":
             return {"symbols": [{"symbol": "EURUSD", "trade_mode_name": "full", "trade_order_mode": 127, "trade_filling_mode": 2,
                                  "update_time": datetime.now(timezone.utc).replace(tzinfo=None).isoformat(), "bid": 1.0999, "ask": 1.1,
@@ -50,9 +53,9 @@ class FakeMcpBroker(McpDemoBroker):
         if name == "trade_order_calc_profit":
             return {"ok": True, "profit": self.loss, "currency": "USD"}
         if name == "trade_order_calc_margin":
-            return {"ok": True, "margin": 1000, "currency": "USD"}
+            return {"ok": True, "margin": self.calculated_margin, "currency": "USD"}
         if name == "trade_check_market_order":
-            return {"ok": False, "retcode": 10030}
+            return self.check_result
         raise AssertionError(name)
 
 
@@ -67,23 +70,55 @@ class DemoBotTests(unittest.TestCase):
         self.assertEqual([name for name, _ in self.broker.calls].count("trade_order_calc_profit"), 1)
         self.assertNotIn("trade_send_market_order", [name for name, _ in self.broker.calls])
 
-    def test_zero_profit_or_missing_tick_size_blocks_before_order(self):
+    def test_zero_profit_blocks_before_order(self):
         self.broker.loss = 0
         with self.assertRaisesRegex(DemoBotBlocked, "zero or invalid"):
             asyncio.run(self.broker.size(self.signal))
-        self.broker.loss = -50
+
+    def test_zero_tick_and_calculated_margin_use_positive_order_check(self):
         self.broker.tick_size = 0
-        with self.assertRaisesRegex(DemoBotBlocked, "tick size"):
-            asyncio.run(self.broker.size(self.signal))
+        self.broker.calculated_margin = 0
+        self.assertEqual(asyncio.run(self.broker.size(self.signal)), D("1.00"))
+        checked = [args for name, args in self.broker.calls if name == "trade_check_market_order"]
+        self.assertEqual(len(checked), 1)
+        self.assertEqual(checked[0]["volume"], 0.01)
+        self.assertEqual(checked[0]["sl"], self.signal.stop)
         self.assertNotIn("trade_send_market_order", [name for name, _ in self.broker.calls])
+
+    def test_zero_margin_without_positive_order_check_blocks(self):
+        self.broker.calculated_margin = 0
+        self.broker.check_result = {"ok": True, "result": {"retcode": 0, "margin": 0, "margin_free": 9999}}
+        with self.assertRaisesRegex(DemoBotBlocked, "margin"):
+            asyncio.run(self.broker.size(self.signal))
 
     def test_permission_and_order_check_block(self):
         self.broker.permission = False
         with self.assertRaisesRegex(DemoBotBlocked, "DEMO"):
             asyncio.run(self.broker.size(self.signal))
         self.broker.permission = True
+        self.broker.check_result = {"ok": True, "result": {"retcode": 10030, "margin": 0.52, "margin_free": 9999}}
         self.assertFalse(asyncio.run(self.broker.check_market_order({"symbol": "EURUSD", "type": "buy", "volume": .01, "sl": 1.095, "comment": "TRC-test"})))
         self.assertNotIn("trade_send_market_order", [name for name, _ in self.broker.calls])
+
+    def test_order_check_accepts_nested_mt5_result_only_with_positive_margin(self):
+        payload = {"symbol": "EURUSD", "type": "buy", "volume": .01, "sl": 1.095, "comment": "TRC-test"}
+        self.assertTrue(asyncio.run(self.broker.check_market_order(payload)))
+        self.broker.check_result = {"ok": True, "result": {"retcode": 0, "margin": 0, "margin_free": 9999}}
+        self.assertFalse(asyncio.run(self.broker.check_market_order(payload)))
+
+    def test_reconciliation_matches_real_mcp_order_and_deal_ids(self):
+        command = DemoCommand("command-1", "key-1", "FxPro|FxPro-Demo|123",
+                              datetime.now(timezone.utc) + timedelta(minutes=1), "ai-1", "EURUSD",
+                              "BUY", D("0.01"), D("1.095"), D("1.11"))
+        self.broker.history = {
+            "orders": [{"order_id": 101, "comment": command.comment, "state": "filled"},
+                       {"order_id": 102, "comment": "other trade", "state": "filled"}],
+            "deals": [{"order_id": 101, "volume": 0.01}, {"order_id": 102, "volume": 0.02}],
+        }
+        evidence = asyncio.run(self.broker.reconcile(command))
+        self.assertIsNotNone(evidence)
+        self.assertEqual(evidence.filled_volume, D("0.01"))
+        self.assertFalse(evidence.stop_protected)
 
     def test_only_closed_fresh_bars_are_used(self):
         now = datetime.now(timezone.utc).replace(second=0, microsecond=0)

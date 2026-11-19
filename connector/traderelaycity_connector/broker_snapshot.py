@@ -73,21 +73,21 @@ def normalize_mt5_snapshot(info: dict, open_trades: dict, observed_at: datetime 
             raise SnapshotError("MT5 position format is invalid")
         # These fields must be checked against a connected terminal with actual
         # positions before the position upload path can be called verified.
-        side = item.get("type")
+        side = item.get("type", item.get("action"))
         if side in (0, "buy", "BUY"):
             side = "BUY"
         elif side in (1, "sell", "SELL"):
             side = "SELL"
         else:
             raise SnapshotError("MT5 position side is unsupported")
-        ticket = str(item.get("ticket", ""))
+        ticket = str(item.get("ticket", item.get("position_id", "")))
         positions.append({
             "ticket": _identity(ticket, "position ticket", 40),
             "symbol": _identity(item.get("symbol"), "position symbol", 32),
             "side": side,
             "volume": _number(item.get("volume"), "position volume", 0.000000001),
             "priceOpen": _number(item.get("price_open"), "position open price", 0.000000001),
-            "priceCurrent": _number(item.get("price_current"), "position current price", 0.000000001),
+            "priceCurrent": _number(item.get("price_current", item.get("price_last")), "position current price", 0.000000001),
             "profit": _number(item.get("profit"), "position profit"),
             "stop": _number(item["sl"], "position stop", 0.000000001) if item.get("sl") else None,
             "target": _number(item["tp"], "position target", 0.000000001) if item.get("tp") else None,
