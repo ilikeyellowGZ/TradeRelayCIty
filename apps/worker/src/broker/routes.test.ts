@@ -6,7 +6,9 @@ import { describe, expect, it, vi } from 'vitest'
 vi.mock('../auth', () => ({
   createAuth: () => ({ api: { getSession: async ({ headers }: { headers: Headers }) => {
     const cookie = headers.get('cookie')
-    return cookie === 'session=owner' ? { user: { id: 'owner-a' } } : cookie === 'session=other' ? { user: { id: 'owner-b' } } : null
+    return cookie === 'session=owner' ? { user: { id: 'owner-a', emailVerified: true } }
+      : cookie === 'session=other' ? { user: { id: 'owner-b', emailVerified: true } }
+        : cookie === 'session=unverified' ? { user: { id: 'owner-b', emailVerified: false } } : null
   } } }),
 }))
 
@@ -54,10 +56,11 @@ const snapshot = () => ({
 })
 
 describe('connector pairing and snapshots', () => {
-  it('denies unsigned, foreign-owner, and cross-origin browser requests', async () => {
+  it('denies unsigned, unverified, and cross-origin browser requests', async () => {
     const { request, ownerHeaders } = setup()
     expect((await request('/api/broker/devices')).status).toBe(401)
-    expect((await request('/api/broker/devices', { headers: { cookie: 'session=other' } })).status).toBe(403)
+    expect((await request('/api/broker/devices', { headers: { cookie: 'session=unverified' } })).status).toBe(401)
+    expect((await request('/api/broker/devices', { headers: { cookie: 'session=other' } })).status).toBe(200)
     expect((await request('/api/broker/pairing-codes', { method: 'POST', headers: { ...ownerHeaders, origin: 'https://evil.example' }, body: '{}' })).status).toBe(403)
     expect((await request('/api/connector/snapshot', { method: 'POST', body: '{}' })).status).toBe(401)
     expect((await request('/api/broker/ai-capabilities', { headers: ownerHeaders }).then((response) => response.json()) as { available: boolean }).available).toBe(false)
@@ -89,11 +92,11 @@ describe('connector pairing and snapshots', () => {
     const accountList = (await accounts.json() as { accounts: Array<{ id: string; balance: number; marginUsed: number; marginFree: number; floatingProfit: number; positions: Array<{ ticket: string }>; stale: boolean }> }).accounts
     expect(accountList[0]).toMatchObject({ balance: 10000, marginUsed: 120, marginFree: 9878, floatingProfit: -2, positions: [{ ticket: '42' }], stale: false })
     const eventsPath = `/api/broker/devices/${deviceId}/events`
-    expect((await request(eventsPath, { headers: { cookie: 'session=other' } })).status).toBe(403)
+    expect((await request(eventsPath, { headers: { cookie: 'session=other' } })).status).toBe(404)
     const events = await request(eventsPath, { headers: ownerHeaders })
     expect((await events.json() as { events: Array<{ state: string }> }).events.map((event) => event.state)).toEqual(['SYNCED', 'MCP_OFFLINE', 'PAIRED'])
     const questionPath = `/api/broker/accounts/${accountList[0].id}/questions`
-    expect((await request(questionPath, { method: 'POST', headers: { ...ownerHeaders, cookie: 'session=other' }, body: JSON.stringify({ question: 'balance' }) })).status).toBe(403)
+    expect((await request(questionPath, { method: 'POST', headers: { ...ownerHeaders, cookie: 'session=other' }, body: JSON.stringify({ question: 'balance' }) })).status).toBe(404)
     const answerResponse = await request(questionPath, { method: 'POST', headers: ownerHeaders, body: JSON.stringify({ question: 'What is my balance?' }) })
     expect(answerResponse.status).toBe(200)
     expect((await answerResponse.json() as { answer: string; mode: string })).toMatchObject({ mode: 'BROKER_READ_ONLY', answer: expect.stringContaining('$10,000.00') })
@@ -127,7 +130,7 @@ describe('connector pairing and snapshots', () => {
     const { accounts } = await accountResponse.json() as { accounts: Array<{ id: string }> }
     const path = `/api/broker/accounts/${accounts[0].id}/ai-questions`
     expect((await request('/api/broker/ai-capabilities', { headers: ownerHeaders }).then((response) => response.json()) as { available: boolean }).available).toBe(true)
-    expect((await request(path, { method: 'POST', headers: { ...ownerHeaders, cookie: 'session=other' }, body: JSON.stringify({ question: 'How much is in my account?' }) })).status).toBe(403)
+    expect((await request(path, { method: 'POST', headers: { ...ownerHeaders, cookie: 'session=other' }, body: JSON.stringify({ question: 'How much is in my account?' }) })).status).toBe(404)
     const provider = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(JSON.stringify({
       id: 'provider-1', status: 'completed', output: [{ type: 'message', role: 'assistant', content: [{ type: 'output_text', text: '{"intent":"BALANCE","symbol":null}' }] }], usage: { input_tokens: 12, output_tokens: 5 },
     }), { status: 200 }))
@@ -142,5 +145,33 @@ describe('connector pairing and snapshots', () => {
       expect((await request(path, { method: 'POST', headers: ownerHeaders, body: JSON.stringify({ question: 'How much is in my account?' }) })).status).toBe(429)
       expect(provider).toHaveBeenCalledTimes(1)
     } finally { provider.mockRestore() }
+  })
+
+  it('isolates two users who pair separate connectors and broker accounts', async () => {
+    const { request, ownerHeaders } = setup()
+    const otherHeaders = { ...ownerHeaders, cookie: 'session=other' }
+    async function pair(headers: typeof ownerHeaders, login: string) {
+      const codeResponse = await request('/api/broker/pairing-codes', { method: 'POST', headers, body: '{}' })
+      expect(codeResponse.status).toBe(201)
+      const { code } = await codeResponse.json() as { code: string }
+      const paired = await request('/api/connector/pair', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ code, name: 'Windows PC' }) })
+      expect(paired.status).toBe(201)
+      const { token, deviceId } = await paired.json() as { token: string; deviceId: string }
+      const account = snapshot()
+      account.account.login = login
+      expect((await request('/api/connector/snapshot', { method: 'POST', headers: { authorization: `Bearer ${token}` }, body: JSON.stringify(account) })).status).toBe(200)
+      return { token, deviceId }
+    }
+    const a = await pair(ownerHeaders, '11111')
+    const b = await pair(otherHeaders, '22222')
+    const accountsA = await request('/api/broker/accounts', { headers: ownerHeaders }).then(r => r.json()) as { accounts: Array<{ id: string; login: string }> }
+    const accountsB = await request('/api/broker/accounts', { headers: otherHeaders }).then(r => r.json()) as { accounts: Array<{ id: string; login: string }> }
+    expect(accountsA.accounts.map(a => a.login)).toEqual(['11111'])
+    expect(accountsB.accounts.map(a => a.login)).toEqual(['22222'])
+    expect((await request(`/api/broker/devices/${a.deviceId}`, { method: 'DELETE', headers: otherHeaders })).status).toBe(404)
+    expect((await request(`/api/broker/devices/${a.deviceId}/events`, { headers: otherHeaders })).status).toBe(404)
+    expect((await request(`/api/broker/accounts/${accountsA.accounts[0].id}/questions`, { method: 'POST', headers: otherHeaders, body: JSON.stringify({ question: 'What is my balance?' }) })).status).toBe(404)
+    expect((await request(`/api/broker/accounts/${accountsA.accounts[0].id}/ai-questions`, { method: 'POST', headers: otherHeaders, body: JSON.stringify({ question: 'What is my balance?' }) })).status).toBe(404)
+    expect((await request('/api/connector/snapshot', { method: 'POST', headers: { authorization: `Bearer ${b.token}` }, body: JSON.stringify({ ...snapshot(), account: { ...snapshot().account, login: '11111' } }) })).status).toBe(409)
   })
 })
