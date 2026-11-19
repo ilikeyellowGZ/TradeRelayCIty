@@ -12,7 +12,7 @@ All timestamps are UTC ISO 8601. Simulation endpoints require loopback host plus
 | GET | `/api/simulation/accounts/{id}/trade-history/{outcomeId}` | Read the latest immutable outcome version and evidence | Owner/account scoped; same 404 for absent/foreign account or outcome; never writes to the command ledger |
 | GET | `/api/simulation/accounts/{id}/trade-history/export.csv` | Export filtered simulated history | Owner/account scoped; max 1,000 rows; fixed allowlist of columns; formula-leading text neutralized |
 | POST | `/api/simulation/commands/{id}/transition` | Advance a simulated command state | Owner-filtered conditional D1 update; valid transition graph; no broker operation |
-| GET/POST | `/api/auth/get-session`, `/api/auth/sign-in/username`, `/api/auth/sign-out` | Owner website session | Username/password only; no public sign-up, email sign-in, passkey or authenticator route; requires `APP_BASE_URL`, `BETTER_AUTH_SECRET`, and migration 0008 |
+| GET/POST | `/api/auth/get-session`, `/api/auth/sign-in/username`, `/api/auth/sign-out`, `/api/auth/sign-up/email`, `/api/auth/verify-email`, `/api/auth/send-verification-email`, `/api/auth/request-password-reset`, `/api/auth/reset-password` | Website account | Username/password sign-in; public signup requires verified email; signup/recovery require a configured email sender; password reset revokes sessions; auth routes use a strict method/path allowlist and same-origin POST |
 | POST | `/api/simulation/ai/decision` | Request a fixture AI opinion | Local loopback simulation only; bounded schema, deterministic HOLD-only provider, per-fixture daily request quota, D1 usage ledger; never creates an order |
 | GET/POST | `/api/simulation/chat?accountId={id}` | List or create a simulated account conversation | Loopback-only; persona from validated simulation context; account owner checked; 90-day retention |
 | GET/DELETE | `/api/simulation/chat/{id}` | Read or delete a simulated conversation | Owner-scoped; messages cascade on delete; maximum 50 listed conversations and 100 messages per conversation |
@@ -30,7 +30,7 @@ The chat routes above are local simulation fixtures, not authenticated productio
 
 | Method | Path | Authentication | Result |
 |---|---|---|---|
-| POST | `/api/broker/pairing-codes` | Owner session and same-origin request | Creates a single-use 20-character code valid for 10 minutes; returns it once |
+| POST | `/api/broker/pairing-codes` | Verified user session and same-origin request | Creates a single-use 20-character code valid for 10 minutes; returns it once |
 | GET | `/api/broker/devices` | Owner session | Lists paired and revoked devices, their last-seen times and account identity |
 | GET | `/api/broker/devices/{id}/events` | Owner session | Lists the latest 25 connection state transitions for an owned device |
 | DELETE | `/api/broker/devices/{id}` | Owner session and same-origin request | Revokes a device token |

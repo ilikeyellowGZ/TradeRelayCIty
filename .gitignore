@@ -16,3 +16,4 @@ connector/release-dist/
 .wrangler/
 .playwright-cli/
 /.codex/config.toml
+connector/assets/release-site.json

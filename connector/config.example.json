@@ -1,5 +1,5 @@
 {
-  "website_url": "https://traderelaycity-staging.service-heyywebb.workers.dev",
+  "website_url": "https://traderelaycity.service-heyywebb.workers.dev",
   "mcp_url": "http://127.0.0.1:22346/mcp",
   "environment": "SIMULATED",
   "poll_seconds": 15,

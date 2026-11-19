@@ -29,7 +29,7 @@ export function PrivateAccessPage() {
     try {
       const result = await authClient.signIn.username({ username: username.trim(), password })
       if (result.error || !result.data) {
-        setError(result.error?.status === 429 ? 'Too many attempts. Wait a minute and try again.' : 'Username or password is incorrect.')
+        setError(result.error?.status === 429 ? 'Too many attempts. Wait a minute and try again.' : result.error?.code === 'EMAIL_NOT_VERIFIED' ? 'Verify your email before signing in. Check your inbox or request a new link.' : 'Username or password is incorrect.')
         return
       }
       window.location.replace('/app')

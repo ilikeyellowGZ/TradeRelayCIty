@@ -2,6 +2,10 @@
 
 The existing hosted workspace is `https://traderelaycity.service-heyywebb.workers.dev`. The `staging` configuration explicitly targets Worker `traderelaycity` and the existing `traderelaycity-staging` D1 database. `APP_BASE_URL` must match that reachable origin for password login to work. The former `traderelaycity-staging` hostname has no Worker. A separate production database and owner setup remain unconfigured.
 
+## Public account prerequisites
+
+Public signup requires `RESEND_API_KEY` as a Worker secret and `EMAIL_FROM` as a Worker variable using a verified sending domain. The Worker rejects signup, verification resend, and reset requests if either is missing. Keep `APP_BASE_URL` on the same HTTPS origin that hosts the app. Apply `0014_public_auth.sql` as well as earlier migrations before deploying this release. The first-run Windows connector must be rebuilt with `connector/build-windows.ps1 -WebsiteUrl <same HTTPS origin>` and included in the web asset build. Test the full verification email and reset flow against the deployed origin before inviting recipients.
+
 ## Deploy staging
 
 Use `npm run db:migrate:staging` for the hosted database or `npm run db:migrate:local` for the local database. These commands explicitly select the source configuration, so a previous Vite build cannot redirect them to another database. Supply `GROQ_API_KEY` and `GEMINI_API_KEY` using private stdin to `wrangler secret bulk --config wrangler.jsonc --env staging`. Preserve the existing `BETTER_AUTH_SECRET` and owner password.

@@ -9,10 +9,10 @@ Use Windows PowerShell, Node.js, and Python 3.14 x64 (the current build was prod
 ```powershell
 npm ci
 Set-Location connector
-./build-windows.ps1
+./build-windows.ps1 -WebsiteUrl https://traderelaycity.service-heyywebb.workers.dev
 ```
 
-The executable is emitted under `connector/release-dist/` and copied to `public/downloads/TradeRelayCity-Connector-Windows.exe`. PyInstaller bundles Python; it does not install or configure MT5. The current development host has Python 3.14.5 only, so the 3.13 Windows package has not been built or smoke-tested here.
+The executable is emitted under `connector/release-dist/` and copied to `public/downloads/TradeRelayCity-Connector-Windows.exe`. Pass the exact deployed HTTPS origin to `-WebsiteUrl`; the build embeds it as the connector's first-run default. PyInstaller bundles Python; it does not install or configure MT5.
 
 ## Website download
 
@@ -22,7 +22,7 @@ To refresh the website download after connector changes, rebuild and then build 
 
 ```powershell
 Set-Location connector
-./build-windows.ps1
+./build-windows.ps1 -WebsiteUrl https://traderelaycity.service-heyywebb.workers.dev
 Set-Location ..
 npm run build
 ```

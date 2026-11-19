@@ -16,6 +16,7 @@ from .cloud_client import CloudClient
 from .connector_flow import DEVICE_CREDENTIAL, pair_device, sync_read_only
 from .instance_lock import InstanceAlreadyRunning, SingleInstanceLock
 from .secure_store import CredentialStoreError, read_secret, store_secret
+from .release_site import release_website_url
 
 APP_DIR = Path(os.environ.get("LOCALAPPDATA", Path.home())) / "TradeRelayCity"
 CONFIG_FILE = APP_DIR / "config.json"
@@ -27,12 +28,14 @@ def icon_path() -> Path:
     return bundle_root / "assets" / "TradeRelayCity.ico"
 
 def load_config() -> dict:
+    defaults = {"website_url": release_website_url(), "mcp_url": "http://127.0.0.1:22346/mcp", "environment": "SIMULATED", "live_entry_enabled": False}
     if CONFIG_FILE.exists():
         try:
-            return json.loads(CONFIG_FILE.read_text(encoding="utf-8"))
+            data = json.loads(CONFIG_FILE.read_text(encoding="utf-8"))
+            return {**defaults, **data} if isinstance(data, dict) else defaults
         except (OSError, json.JSONDecodeError):
-            return {}
-    return {"website_url": "https://traderelaycity-staging.service-heyywebb.workers.dev", "mcp_url": "http://127.0.0.1:22346/mcp", "environment": "SIMULATED", "live_entry_enabled": False}
+            return defaults
+    return defaults
 
 class ConnectorApp(tk.Tk):
     def __init__(self):
@@ -66,7 +69,7 @@ class ConnectorApp(tk.Tk):
         ttk.Label(outer, text="TRADERELAYCITY CONNECTOR", style="Title.TLabel").pack(anchor="w")
         ttk.Label(outer, textvariable=self.status, foreground="#1553d5").pack(anchor="w", pady=(7, 18))
         fields = [
-            ("TradeRelayCity website URL", "website_url", "https://traderelaycity-staging.service-heyywebb.workers.dev"),
+            ("TradeRelayCity website URL", "website_url", release_website_url()),
             ("MT5 MCP endpoint (local PC only)", "mcp_url", "http://127.0.0.1:22346/mcp"),
         ]
         self.entries: dict[str, ttk.Entry] = {}

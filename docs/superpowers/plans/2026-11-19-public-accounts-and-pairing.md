@@ -69,7 +69,7 @@ export const authPathAllowed = (method: string, path: string) => allowed.has(`${
 
 ### Task 2: Verified public account lifecycle
 
-**Files:** Modify `apps/worker/src/auth.ts`, `apps/worker/src/auth.schema.ts`, `apps/worker/src/index.ts`, `apps/worker/src/auth-shell.test.ts`, `scripts/bootstrap-owner-password.ps1`; create `apps/worker/src/public-auth.test.ts` and `migrations/0013_public_auth.sql`.
+**Files:** Modify `apps/worker/src/auth.ts`, `apps/worker/src/auth.schema.ts`, `apps/worker/src/index.ts`, `apps/worker/src/auth-shell.test.ts`, `scripts/bootstrap-owner-password.ps1`; create `apps/worker/src/public-auth.test.ts` and `migrations/0014_public_auth.sql`.
 
 **Interfaces:** Extend `AuthEnv` with `RESEND_API_KEY`, `EMAIL_FROM`; `createAuth(env)` continues to return the Better Auth instance. The public API uses the Task 1 allowlist.
 
@@ -93,7 +93,7 @@ if (c.req.method === 'POST' && c.req.header('origin') !== new URL(c.req.url).ori
   return c.json({ error: 'Invalid origin.' }, 403)
 // After getSession in the protected route:
 if (!session?.user?.emailVerified) return c.redirect('/login', 302)
-// In migration 0013_public_auth.sql:
+// In migration 0014_public_auth.sql:
 UPDATE "user" SET "emailVerified"=1
 WHERE id=(SELECT value FROM app_settings WHERE key='owner_user_id')
   AND email LIKE 'owner-%@traderelaycity.invalid';

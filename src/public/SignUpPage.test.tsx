@@ -32,7 +32,7 @@ it('creates an account and directs the user to email verification', async () => 
   fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'MORGAN@example.com' } })
   fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'long-password-123' } })
   fireEvent.click(screen.getByRole('button', { name: /create account/i }))
-  await waitFor(() => expect(signUp).toHaveBeenCalledWith(expect.objectContaining({ username: 'morgan', email: 'morgan@example.com', callbackURL: '/verify-email' })))
+  await waitFor(() => expect(signUp).toHaveBeenCalledWith(expect.objectContaining({ username: 'morgan', email: 'morgan@example.com', callbackURL: '/verify-email?verified=1' })))
   expect(await screen.findByRole('status')).toHaveProperty('textContent', expect.stringContaining('Check your email'))
 })
 

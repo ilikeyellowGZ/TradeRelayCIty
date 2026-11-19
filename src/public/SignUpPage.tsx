@@ -19,7 +19,7 @@ export function SignUpPage() {
     if (password.length < 12) { setError('Use a password with at least 12 characters.'); return }
     setBusy(true); setError('')
     try {
-      const result = await authClient.signUp.email({ name: name.trim(), username: username.trim(), email: email.trim().toLowerCase(), password, callbackURL: '/verify-email' })
+      const result = await authClient.signUp.email({ name: name.trim(), username: username.trim(), email: email.trim().toLowerCase(), password, callbackURL: '/verify-email?verified=1' })
       if (result.error) { setError(result.error.status === 429 ? 'Too many attempts. Try again later.' : result.error.message || 'Could not create your account.'); return }
       setSent(true)
     } catch { setError('Account service is unavailable. Try again shortly.') }
