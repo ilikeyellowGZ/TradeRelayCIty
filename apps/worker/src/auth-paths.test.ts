@@ -16,4 +16,10 @@ describe('public auth route allowlist', () => {
   ])('rejects %s %s', (method, path) => {
     expect(authPathAllowed(method, path)).toBe(false)
   })
+
+  it('accepts only bounded password reset callback tokens', () => {
+    expect(authPathAllowed('GET', '/reset-password/abcdefghijklmnopqrstuvwx')).toBe(true)
+    expect(authPathAllowed('GET', '/reset-password/../list-sessions')).toBe(false)
+    expect(authPathAllowed('POST', '/reset-password/abcdefghijklmnopqrstuvwx')).toBe(false)
+  })
 })

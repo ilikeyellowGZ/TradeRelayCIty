@@ -10,5 +10,5 @@ const allowed = new Set([
 ])
 
 export function authPathAllowed(method: string, path: string): boolean {
-  return allowed.has(`${method} ${path}`)
+  return allowed.has(`${method} ${path}`) || (method === 'GET' && /^\/reset-password\/[A-Za-z0-9_-]{24}$/.test(path))
 }

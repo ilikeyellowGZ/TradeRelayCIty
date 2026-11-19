@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 
 vi.mock('./auth', () => ({
-  createAuth: () => ({ api: { getSession: async () => ({ user: { id: 'test-user' } }) } }),
+  createAuth: () => ({ api: { getSession: async () => ({ user: { id: 'test-user', emailVerified: true } }) } }),
 }))
 
 import app from './index'

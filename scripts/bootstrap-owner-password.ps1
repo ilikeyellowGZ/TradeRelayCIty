@@ -36,7 +36,7 @@ $accountId = [guid]::NewGuid().ToString()
 $internalEmail = "owner-$userId@traderelaycity.invalid"
 $sql = @"
 INSERT INTO "user" ("id", "name", "email", "emailVerified", "createdAt", "updatedAt", "username")
-SELECT '$userId', '$Username', '$internalEmail', 0, CAST(strftime('%s','now') AS INTEGER)*1000, CAST(strftime('%s','now') AS INTEGER)*1000, '$Username'
+SELECT '$userId', '$Username', '$internalEmail', 1, CAST(strftime('%s','now') AS INTEGER)*1000, CAST(strftime('%s','now') AS INTEGER)*1000, '$Username'
 WHERE NOT EXISTS (SELECT 1 FROM app_settings WHERE key='owner_user_id');
 INSERT INTO "account" ("id", "accountId", "providerId", "userId", "password", "createdAt", "updatedAt")
 SELECT '$accountId', '$userId', 'credential', '$userId', '$hash', CAST(strftime('%s','now') AS INTEGER)*1000, CAST(strftime('%s','now') AS INTEGER)*1000

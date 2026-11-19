@@ -5,7 +5,7 @@ import { username } from 'better-auth/plugins'
 
 export const auth = betterAuth({
   database: new DatabaseSync(':memory:'),
-  emailAndPassword: { enabled: true, disableSignUp: true },
+  emailAndPassword: { enabled: true, requireEmailVerification: true },
   plugins: [username({ displayUsername: false, immutableUsername: true })],
   rateLimit: { enabled: true, storage: 'database' },
 })
