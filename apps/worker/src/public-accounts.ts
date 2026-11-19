@@ -31,7 +31,7 @@ async function digest(secret: string, message: string): Promise<string> {
 
 function newRecoveryCode(): string {
   const hex = Array.from(crypto.getRandomValues(new Uint8Array(codeBytes)), (byte) => byte.toString(16).padStart(2, '0')).join('').toUpperCase()
-  return hex.match(/.{8}/g)!.join('-')
+  return [0, 8, 16, 24].map((start) => hex.slice(start, start + 8)).join('-')
 }
 
 async function limited(db: D1Database, secret: string, category: string, identity: string, max: number, windowMs: number): Promise<boolean> {

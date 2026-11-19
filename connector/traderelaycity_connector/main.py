@@ -7,6 +7,7 @@ import sys
 import tkinter as tk
 import queue
 import threading
+import time
 from pathlib import Path
 from tkinter import messagebox, ttk
 
@@ -14,6 +15,8 @@ from .mcp_adapter import inspect_mt5
 from .broker_snapshot import read_broker_snapshot
 from .cloud_client import CloudClient
 from .connector_flow import DEVICE_CREDENTIAL, pair_device, sync_read_only
+from .demo_bot import run_demo_cycle
+from .journal import Journal
 from .instance_lock import InstanceAlreadyRunning, SingleInstanceLock
 from .secure_store import CredentialStoreError, read_secret, store_secret
 from .release_site import release_website_url
@@ -44,8 +47,8 @@ class ConnectorApp(tk.Tk):
         if icon.is_file():
             self.iconbitmap(default=str(icon))
         self.title("TradeRelayCity Connector")
-        self.geometry("600x645")
-        self.minsize(520, 580)
+        self.geometry("600x805")
+        self.minsize(520, 805)
         self.configure(bg="#f7f5f0")
         self.config_data = load_config()
         self.status = tk.StringVar(value="Offline · no account bound")
@@ -53,6 +56,11 @@ class ConnectorApp(tk.Tk):
         self.sync_enabled = bool(self.config_data.get("auto_sync_enabled", False))
         self.sync_busy = False
         self.sync_results: queue.Queue[tuple[bool, str]] = queue.Queue()
+        self.demo_results: queue.Queue[tuple[bool, str]] = queue.Queue()
+        self.demo_busy = False
+        self.demo_arm = tk.BooleanVar(value=False)
+        self.demo_watch = tk.BooleanVar(value=False)
+        self.next_demo_at = 0.0
         self._build()
         self.after(200, self._drain_sync_results)
         self.after(15_000, self._scheduled_sync)
@@ -86,7 +94,7 @@ class ConnectorApp(tk.Tk):
             self.secret.insert(0, read_secret(MCP_CREDENTIAL) or "")
         except CredentialStoreError:
             pass
-        ttk.Label(outer, text="Execution mode: SIMULATED · Live entry execution disabled", foreground="#8e2535").pack(anchor="w", pady=(16, 5))
+        ttk.Label(outer, text="MT5 DEMO bot: off until armed here · Live entries disabled", foreground="#8e2535").pack(anchor="w", pady=(16, 5))
         row = ttk.Frame(outer)
         row.pack(fill="x", pady=(9, 11))
         ttk.Button(row, text="Save local settings", command=self.save).pack(side="left")
@@ -100,9 +108,13 @@ class ConnectorApp(tk.Tk):
         ttk.Button(cloud_row, text="Sync MT5 snapshot (read only)", command=self.sync_snapshot).pack(side="right")
         self.auto_sync_button = ttk.Button(outer, text="Pause automatic sync" if self.sync_enabled else "Resume automatic sync", command=self.toggle_auto_sync)
         self.auto_sync_button.pack(anchor="w", pady=(0, 10))
+        ttk.Separator(outer).pack(fill="x", pady=5)
+        ttk.Checkbutton(outer, text="Arm EURUSD DEMO orders for this session (one per UTC day)", variable=self.demo_arm).pack(anchor="w", pady=(5, 3))
+        ttk.Checkbutton(outer, text="Run the demo bot every 15 minutes while armed", variable=self.demo_watch).pack(anchor="w", pady=(0, 5))
+        ttk.Button(outer, text="Run one demo bot cycle", command=self.run_demo_bot).pack(anchor="w", pady=(0, 10))
         ttk.Separator(outer).pack(fill="x", pady=7)
         ttk.Label(outer, textvariable=self.message, style="Hint.TLabel").pack(fill="x", anchor="w")
-        ttk.Label(outer, text="A successful MCP handshake does not authorize trading. Account binding and required risk capabilities still need verification.", style="Hint.TLabel").pack(fill="x", anchor="w", pady=(14, 0))
+        ttk.Label(outer, text="Demo entries need a closed-bar setup, AI approval, broker calculations, order check and protective stop. Missing data blocks the order.", style="Hint.TLabel").pack(fill="x", anchor="w", pady=(14, 0))
 
     def save(self) -> bool:
         APP_DIR.mkdir(parents=True, exist_ok=True)
@@ -128,7 +140,7 @@ class ConnectorApp(tk.Tk):
         self.update_idletasks()
         try:
             result = asyncio.run(inspect_mt5(self.entries["mcp_url"].get().strip(), self.secret.get().strip()))
-            self.message.set(f"{result.account_summary}\nRead-only tools: {', '.join(result.allowed_read_only_tools) or 'none'}\nTrading capabilities remain blocked.")
+            self.message.set(f"{result.account_summary}\nRead-only tools: {', '.join(result.allowed_read_only_tools) or 'none'}\nDemo order capability requires a separate armed bot cycle.")
             self.status.set("Demo broker connected; read only" if result.ready_for_demo else "MCP connected; broker not demo-ready")
         except Exception as error:  # show a bounded diagnostic, never the secret
             self.status.set("Offline · MCP connection check failed")
@@ -181,7 +193,41 @@ class ConnectorApp(tk.Tk):
             self.sync_busy = False
             self.status.set("Broker snapshot synced, read only" if success else "Snapshot sync failed; retry available")
             self.message.set(f"Account snapshot uploaded at {detail}. No order tool was called." if success else detail)
+        try:
+            success, detail = self.demo_results.get_nowait()
+        except queue.Empty:
+            pass
+        else:
+            self.demo_busy = False
+            self.status.set("Demo bot cycle complete" if success else "Demo bot blocked")
+            self.message.set(detail)
         self.after(200, self._drain_sync_results)
+
+    def run_demo_bot(self) -> None:
+        if self.demo_busy or not self.save():
+            return
+        self.demo_busy = True
+        self.next_demo_at = time.monotonic() + 900
+        website, endpoint, armed = self.config_data["website_url"], self.config_data["mcp_url"], self.demo_arm.get()
+        self.status.set("Checking EURUSD DEMO bot setup" + (" · armed" if armed else " · dry run"))
+
+        def work() -> None:
+            journal = None
+            try:
+                key, token = read_secret(MCP_CREDENTIAL), read_secret(DEVICE_CREDENTIAL)
+                if not key or not token:
+                    raise ValueError("Save the MT5 MCP key and pair this device first")
+                APP_DIR.mkdir(parents=True, exist_ok=True)
+                journal = Journal(APP_DIR / "demo-bot.sqlite")
+                outcome = asyncio.run(run_demo_cycle(CloudClient(website, timeout=30), token, endpoint, key, journal, armed))
+                self.demo_results.put((True, f"{outcome.status.upper()}: {outcome.reason or 'Broker reconciliation recorded the outcome.'}"))
+            except Exception as error:
+                self.demo_results.put((False, f"{type(error).__name__}: {str(error)[:220]}"))
+            finally:
+                if journal is not None:
+                    journal.close()
+
+        threading.Thread(target=work, daemon=True).start()
 
     def toggle_auto_sync(self) -> None:
         self.sync_enabled = not self.sync_enabled
@@ -202,6 +248,8 @@ class ConnectorApp(tk.Tk):
     def _scheduled_sync(self) -> None:
         if self.sync_enabled and not self.sync_busy:
             self.sync_snapshot()
+        if self.demo_arm.get() and self.demo_watch.get() and not self.demo_busy and time.monotonic() >= self.next_demo_at:
+            self.run_demo_bot()
         self.after(15_000, self._scheduled_sync)
 
 def run() -> None:

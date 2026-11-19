@@ -1,4 +1,4 @@
-"""Outbound HTTPS client for owner-paired read-only snapshots."""
+"""Outbound HTTPS client for owner-paired snapshots and demo opinions."""
 from __future__ import annotations
 
 import json
@@ -76,3 +76,11 @@ class CloudClient:
         result = self._post("/api/connector/status", {"state": state}, token)
         if result.get("state") != state:
             raise CloudClientError("Connector API did not confirm this status")
+
+    def request_demo_opinion(self, token: str, request: dict) -> dict:
+        if not token or len(token) != 43:
+            raise CloudClientError("Paired device credential is missing")
+        result = self._post("/api/connector/demo/opinion", request, token)
+        if result.get("decision") not in ("HOLD", "BUY", "SELL") or not isinstance(result.get("approved"), bool) or not isinstance(result.get("decisionId"), str) or not isinstance(result.get("expiresAt"), str):
+            raise CloudClientError("Connector API returned an invalid demo opinion")
+        return result

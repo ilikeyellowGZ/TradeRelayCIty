@@ -2,15 +2,15 @@
 
 ## Public accounts with recovery codes — 19 November 2026
 
-The isolated `feat/public-user-onboarding-clean` branch implements public username/password accounts without email, eight one-time recovery codes, code-based password reset with session revocation, signed-in code rotation, per-user broker pairing, and a connector built for `https://traderelaycity.service-heyywebb.workers.dev`. The hosted website still serves its prior read-only release; this branch has not been deployed.
+The `feat/public-user-onboarding-clean` branch implements public username/password accounts without email, eight one-time recovery codes, code-based password reset with session revocation, signed-in code rotation, per-user broker pairing, and a connector built for `https://traderelaycity.service-heyywebb.workers.dev`. It has been merged with the local EURUSD demo bot work. The hosted website serves the earlier demo bot release; this public-account revision has not been deployed.
 
 ### Passed locally
 
-- `npm test`: 20 files, 100 tests passed. Coverage includes Better Auth username sign-in, hashed recovery codes, concurrent code replay denial, code rotation, old-session revocation, route closure, and two-user broker isolation.
+- `npm test`: 20 files, 101 tests passed. Coverage includes Better Auth username sign-in, hashed recovery codes, concurrent code replay denial, code rotation, old-session revocation, route closure, two-user broker isolation, and the bound demo opinion route.
 - `npm run db:migrate:local`: migration `0015_account_recovery.sql` applied after earlier migrations.
 - `node scripts/smoke-local-recovery.mjs` against the local Worker and D1: two disposable users registered and signed in; only one saw its paired device; foreign revoke returned 404; own revoke blocked the device token; code rotation, reset, prior-session revocation, and email route closure passed.
 - `npm run build`: Worker and client production bundles succeeded. `npx react-doctor@latest --verbose --scope changed` found no changed-React issues. `npm audit --audit-level=moderate` found zero vulnerabilities after the Vitest update.
-- Connector Python suite: 39 tests passed. `connector/build-windows.ps1 -WebsiteUrl https://traderelaycity.service-heyywebb.workers.dev` built a 24,530,234-byte executable. The PyInstaller archive contains `assets/release-site.json`, and the source, public download, and built website asset have matching SHA-256 `835e0d6b580f125b2738955bc4fb488ba77e7948d92d1196e9244ef182401ed2`.
+- Connector Python suite: 46 tests passed. `connector/build-windows.ps1 -WebsiteUrl https://traderelaycity.service-heyywebb.workers.dev` built a 25,485,072-byte executable (SHA-256 `e27806bc8cf3daeb074e32051f3034755b7c4e93928ca038527e58c9c1ad6fed`). The PyInstaller archive contains `assets/release-site.json`; the source, public download, and built website asset have matching hashes.
 - No `.dev.vars` appears in `dist`; the built client includes `_headers` security rules. The hosted `/api/health` returned HTTP 200 with `BROKER_READ_ONLY` and `isLive:false` on this date.
 
 ### Pending before inviting recipients
