@@ -14,4 +14,10 @@ describe('password-protected workspace shell', () => {
     expect(response.status).toBe(302)
     expect(response.headers.get('location')).toBe('/login')
   })
+
+  it('preserves the Trading destination when sign-in is needed', async () => {
+    const response = await app.request('http://127.0.0.1:5173/app/trading', undefined, env)
+    expect(response.status).toBe(302)
+    expect(response.headers.get('location')).toBe('/login?next=%2Fapp%2Ftrading')
+  })
 })

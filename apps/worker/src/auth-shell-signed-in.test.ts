@@ -7,7 +7,7 @@ vi.mock('./auth', () => ({
 import app from './index'
 
 describe('signed-in workspace shell', () => {
-  it('serves the root SPA asset without an asset redirect', async () => {
+  it.each(['/app', '/app/trading'])('serves the root SPA asset for %s without an asset redirect', async (path) => {
     let fetchedPath = ''
     const env = {
       DB: {} as D1Database,
@@ -22,7 +22,7 @@ describe('signed-in workspace shell', () => {
       APP_BASE_URL: 'http://127.0.0.1:5173',
       BETTER_AUTH_SECRET: 'test-only-secret-with-at-least-32-characters',
     }
-    const response = await app.request('http://127.0.0.1:5173/app', { headers: { cookie: 'better-auth.session_token=test-only' } }, env)
+    const response = await app.request(`http://127.0.0.1:5173${path}`, { headers: { cookie: 'better-auth.session_token=test-only' } }, env)
     expect(response.status).toBe(200)
     expect(fetchedPath).toBe('/')
     expect(response.headers.get('cache-control')).toBe('private, no-store')

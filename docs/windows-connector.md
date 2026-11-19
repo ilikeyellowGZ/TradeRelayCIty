@@ -14,6 +14,8 @@ Set-Location connector
 
 The executable is emitted under `connector/release-dist/` and copied to `public/downloads/TradeRelayCity-Connector-Windows.exe`. Pass the exact deployed HTTPS origin to `-WebsiteUrl`; the build embeds it as the connector's first-run default. PyInstaller bundles Python; it does not install or configure MT5.
 
+The connector's **Open Trading page on website** button opens that configured origin at `/app/trading` in the default browser. If the website asks for sign-in, it returns to Trading afterward. The button only opens the strategy workspace; it does not place an MT5 order.
+
 ## Website download
 
 The public landing page has a **Download app for Windows** button. It downloads `TradeRelayCity-Connector-Windows.exe` directly without a website login or ZIP extraction. The executable and its window use the web app's candlestick logo. It is a portable connector with a session-armed demo bot, not an installer.

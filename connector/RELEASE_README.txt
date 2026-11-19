@@ -9,6 +9,8 @@ TradeRelayCity Connector for Windows - MT5 snapshots and guarded DEMO bot
    a one-time pairing code, paste it into the connector, and pair this device.
 5. Sync an MT5 snapshot. The first valid snapshot binds this device to the
    displayed broker account. Automatic snapshot sync retries every 15 seconds.
+   Open Trading page on website launches the strategy workspace in your browser;
+   sign in there if prompted. This button does not submit an MT5 order.
 6. Run one demo bot cycle with the arm box clear to inspect HOLD/READY status.
    To permit an actual EURUSD DEMO order, set MT5's AI Assistant > Trading
    permission to allow trades, arm demo orders in the connector for this

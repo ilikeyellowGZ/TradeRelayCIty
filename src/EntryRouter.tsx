@@ -21,7 +21,7 @@ function ProtectedWorkspace() {
     }).catch(() => { if (active) setStatus('error') })
     return () => { active = false }
   }, [])
-  useEffect(() => { if (status === 'signed-out') window.location.replace('/login') }, [status])
+  useEffect(() => { if (status === 'signed-out') window.location.replace(window.location.pathname === '/app/trading' ? '/login?next=%2Fapp%2Ftrading' : '/login') }, [status])
   if (status === 'error') return <main className="route-loading" role="alert">Could not check your session. <a href="/login">Return to sign in</a></main>
   if (status !== 'ready') return <main className="route-loading" role="status">Opening workspace…</main>
   return <Suspense fallback={<main className="route-loading" role="status">Loading workspace…</main>}><Workspace /></Suspense>

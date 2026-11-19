@@ -8,12 +8,13 @@ import tkinter as tk
 import queue
 import threading
 import time
+import webbrowser
 from pathlib import Path
 from tkinter import messagebox, ttk
 
 from .mcp_adapter import inspect_mt5
 from .broker_snapshot import read_broker_snapshot
-from .cloud_client import CloudClient
+from .cloud_client import CloudClient, validate_website_url
 from .connector_flow import DEVICE_CREDENTIAL, pair_device, sign_out_device, sync_read_only
 from .demo_bot import run_demo_cycle
 from .journal import Journal
@@ -39,6 +40,10 @@ def load_config() -> dict:
         except (OSError, json.JSONDecodeError):
             return defaults
     return defaults
+
+
+def trading_page_url(website_url: str) -> str:
+    return validate_website_url(website_url) + "/app/trading"
 
 class ConnectorApp(tk.Tk):
     def __init__(self):
@@ -108,6 +113,7 @@ class ConnectorApp(tk.Tk):
         cloud_row.pack(fill="x", pady=(10, 12))
         ttk.Button(cloud_row, text="Pair this device", command=self.pair).pack(side="left")
         ttk.Button(cloud_row, text="Sync MT5 snapshot (read only)", command=self.sync_snapshot).pack(side="right")
+        ttk.Button(outer, text="Open Trading page on website", command=self.open_trading_page).pack(anchor="w", pady=(0, 10))
         self.auto_sync_button = ttk.Button(outer, text="Pause automatic sync" if self.sync_enabled else "Resume automatic sync", command=self.toggle_auto_sync)
         self.auto_sync_button.pack(anchor="w", pady=(0, 10))
         self.sign_out_button = ttk.Button(outer, text="Sign out and disconnect", command=self.sign_out)
@@ -165,6 +171,15 @@ class ConnectorApp(tk.Tk):
         except Exception as error:
             self.status.set("Pairing failed")
             self.message.set(f"{type(error).__name__}: {str(error)[:240]}")
+
+    def open_trading_page(self) -> None:
+        try:
+            url = trading_page_url(self.entries["website_url"].get().strip())
+            if not webbrowser.open_new_tab(url):
+                raise RuntimeError("No browser could be opened")
+            self.message.set("Trading page opened in your browser. Sign in there if prompted.")
+        except (ValueError, RuntimeError) as error:
+            self.message.set(f"Could not open Trading page: {error}")
 
     def sync_snapshot(self) -> None:
         if self.sync_busy or self.sign_out_busy or not self.save():

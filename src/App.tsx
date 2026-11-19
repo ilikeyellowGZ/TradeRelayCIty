@@ -153,7 +153,7 @@ function SectionPreview({ active }: { active: string }) {
 
 function App() {
   const reduceMotion = useReducedMotion()
-  const [active, setActive] = useState(() => window.location.pathname === '/app/security' ? 'Security' : 'Overview')
+  const [active, setActive] = useState(() => window.location.pathname === '/app/trading' ? 'Bots & Strategies' : window.location.pathname === '/app/security' ? 'Security' : 'Overview')
   const [theme, setTheme] = useState<'light' | 'dark'>(() => window.localStorage.getItem('trc-theme') === 'light' ? 'light' : 'dark')
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [isMobile, setIsMobile] = useState(() => window.matchMedia('(max-width: 1023px)').matches)
@@ -183,6 +183,11 @@ function App() {
     : connectorDevices === null
       ? { tone: 'muted' as const, label: 'Checking MT5…', detail: 'Checking your paired Windows connector.' }
       : getConnectionStatus(connectorDevices, statusNow)
+
+  useEffect(() => {
+    const path = active === 'Bots & Strategies' ? '/app/trading' : active === 'Security' ? '/app/security' : '/app'
+    if (window.location.pathname !== path) window.history.replaceState(null, '', path)
+  }, [active])
 
   useEffect(() => {
     let mounted = true

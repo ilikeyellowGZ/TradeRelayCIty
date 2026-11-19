@@ -32,7 +32,8 @@ export function PrivateAccessPage() {
         setError(result.error?.status === 429 ? 'Too many attempts. Wait a minute and try again.' : 'Username or password is incorrect.')
         return
       }
-      window.location.replace('/app')
+      const next = new URLSearchParams(window.location.search).get('next')
+      window.location.replace(next === '/app/trading' ? next : '/app')
     } catch {
       setError('Sign-in service is unavailable. Try again shortly.')
     } finally {

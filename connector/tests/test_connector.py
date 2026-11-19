@@ -15,10 +15,16 @@ from traderelaycity_connector.strategy import Candle, confirmed_swings, validate
 from traderelaycity_connector.backtest import _simulate
 from traderelaycity_connector.strategy import CandidateSignal
 from traderelaycity_connector.simulation_client import SimulationClient, validate_simulation_base_url
+from traderelaycity_connector.main import trading_page_url
 from decimal import Decimal as D
 from datetime import datetime, timedelta, timezone
 
 class ConnectorBoundaryTests(unittest.TestCase):
+    def test_trading_page_link_uses_the_configured_website_origin(self):
+        self.assertEqual(trading_page_url("https://example.com/"), "https://example.com/app/trading")
+        with self.assertRaises(ValueError):
+            trading_page_url("https://example.com/unsafe")
+
     @unittest.skipUnless(sys.platform == "win32", "Windows Credential Manager only")
     def test_credential_manager_round_trip(self):
         target = f"TradeRelayCity-test/{uuid.uuid4()}"

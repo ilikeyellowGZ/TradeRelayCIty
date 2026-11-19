@@ -46,10 +46,11 @@ app.route('/api/account', publicAccountRoutes)
 
 app.on('GET', ['/app', '/app/*'], async (c) => {
   if (!c.env.APP_BASE_URL || !c.env.BETTER_AUTH_SECRET) return c.text('Workspace authentication is unavailable.', 503)
-  if (!c.req.header('cookie')) return c.redirect('/login', 302)
+  const loginPath = c.req.path === '/app/trading' ? '/login?next=%2Fapp%2Ftrading' : '/login'
+  if (!c.req.header('cookie')) return c.redirect(loginPath, 302)
   try {
     const session = await createAuth({ DB: c.env.DB, APP_BASE_URL: c.env.APP_BASE_URL, BETTER_AUTH_SECRET: c.env.BETTER_AUTH_SECRET }).api.getSession({ headers: c.req.raw.headers })
-    if (!session?.user) return c.redirect('/login', 302)
+    if (!session?.user) return c.redirect(loginPath, 302)
     const asset = await c.env.ASSETS.fetch(new Request(new URL('/', c.req.url), c.req.raw))
     const headers = new Headers(asset.headers)
     headers.set('cache-control', 'private, no-store')
