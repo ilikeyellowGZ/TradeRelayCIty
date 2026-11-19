@@ -16,6 +16,8 @@ The executable is emitted under `connector/release-dist/` and copied to `public/
 
 The connector's **Open Trading page on website** button opens that configured origin at `/app/trading` in the default browser. If the website asks for sign-in, it returns to Trading afterward. The button only opens the strategy workspace; it does not place an MT5 order.
 
+The **Open website and MT5** button also launches the local MetaTrader 5 application. Select your `terminal64.exe` or `terminal.exe` file the first time; the connector remembers its path on this PC. Opening both apps does not pair the connector or place an order.
+
 ## Website download
 
 The public landing page has a **Download app for Windows** button. It downloads `TradeRelayCity-Connector-Windows.exe` directly without a website login or ZIP extraction. The executable and its window use the web app's candlestick logo. It is a portable connector with a session-armed demo bot, not an installer.

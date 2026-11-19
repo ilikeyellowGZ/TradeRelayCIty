@@ -10,7 +10,7 @@ import threading
 import time
 import webbrowser
 from pathlib import Path
-from tkinter import messagebox, ttk
+from tkinter import filedialog, messagebox, ttk
 
 from .mcp_adapter import inspect_mt5
 from .broker_snapshot import read_broker_snapshot
@@ -44,6 +44,21 @@ def load_config() -> dict:
 
 def trading_page_url(website_url: str) -> str:
     return validate_website_url(website_url) + "/app/trading"
+
+
+def mt5_executable(path: str) -> Path:
+    executable = Path(path)
+    if executable.name.lower() not in {"terminal64.exe", "terminal.exe"} or not executable.is_file():
+        raise ValueError("Select your MT5 terminal64.exe or terminal.exe file")
+    return executable
+
+
+def open_website_and_mt5(website_url: str, mt5_path: str, launch_mt5, open_website) -> None:
+    url = trading_page_url(website_url)
+    executable = mt5_executable(mt5_path)
+    launch_mt5(str(executable))
+    if not open_website(url):
+        raise RuntimeError("MT5 opened, but the website browser did not open")
 
 class ConnectorApp(tk.Tk):
     def __init__(self):
@@ -113,22 +128,25 @@ class ConnectorApp(tk.Tk):
         cloud_row.pack(fill="x", pady=(10, 12))
         ttk.Button(cloud_row, text="Pair this device", command=self.pair).pack(side="left")
         ttk.Button(cloud_row, text="Sync MT5 snapshot (read only)", command=self.sync_snapshot).pack(side="right")
-        ttk.Button(outer, text="Open Trading page on website", command=self.open_trading_page).pack(anchor="w", pady=(0, 10))
+        launch_row = ttk.Frame(outer)
+        launch_row.pack(fill="x", pady=(0, 8))
+        ttk.Button(launch_row, text="Open Trading page on website", command=self.open_trading_page).pack(side="left")
+        ttk.Button(launch_row, text="Open website and MT5", command=self.open_both_apps).pack(side="right")
         self.auto_sync_button = ttk.Button(outer, text="Pause automatic sync" if self.sync_enabled else "Resume automatic sync", command=self.toggle_auto_sync)
         self.auto_sync_button.pack(anchor="w", pady=(0, 10))
         self.sign_out_button = ttk.Button(outer, text="Sign out and disconnect", command=self.sign_out)
         self.sign_out_button.pack(anchor="w", pady=(0, 10))
-        ttk.Separator(outer).pack(fill="x", pady=5)
+        ttk.Separator(outer).pack(fill="x", pady=3)
         ttk.Checkbutton(outer, text="Arm EURUSD DEMO orders for this session (one per UTC day)", variable=self.demo_arm).pack(anchor="w", pady=(5, 3))
         ttk.Checkbutton(outer, text="Run the demo bot every 15 minutes while armed", variable=self.demo_watch).pack(anchor="w", pady=(0, 5))
         ttk.Button(outer, text="Run one demo bot cycle", command=self.run_demo_bot).pack(anchor="w", pady=(0, 10))
         ttk.Separator(outer).pack(fill="x", pady=7)
         ttk.Label(outer, textvariable=self.message, style="Hint.TLabel").pack(fill="x", anchor="w")
-        ttk.Label(outer, text="Demo entries need a closed-bar setup, AI approval, broker calculations, order check and protective stop. Missing data blocks the order.", style="Hint.TLabel").pack(fill="x", anchor="w", pady=(14, 0))
+        ttk.Label(outer, text="Demo entries need a closed-bar setup, AI approval, broker calculations, order check and protective stop. Missing data blocks the order.", style="Hint.TLabel").pack(fill="x", anchor="w", pady=(8, 0))
 
     def save(self) -> bool:
         APP_DIR.mkdir(parents=True, exist_ok=True)
-        self.config_data = {"website_url": self.entries["website_url"].get().strip(), "mcp_url": self.entries["mcp_url"].get().strip(), "environment": "SIMULATED", "auto_sync_enabled": self.sync_enabled, "live_entry_enabled": False}
+        self.config_data = {"website_url": self.entries["website_url"].get().strip(), "mcp_url": self.entries["mcp_url"].get().strip(), "mt5_executable": self.config_data.get("mt5_executable", ""), "environment": "SIMULATED", "auto_sync_enabled": self.sync_enabled, "live_entry_enabled": False}
         key = self.secret.get().strip()
         if key:
             try:
@@ -180,6 +198,31 @@ class ConnectorApp(tk.Tk):
             self.message.set("Trading page opened in your browser. Sign in there if prompted.")
         except (ValueError, RuntimeError) as error:
             self.message.set(f"Could not open Trading page: {error}")
+
+    def open_both_apps(self) -> None:
+        website_url = self.entries["website_url"].get().strip()
+        try:
+            trading_page_url(website_url)
+            selected = self.config_data.get("mt5_executable", "")
+            try:
+                mt5_executable(selected)
+            except ValueError:
+                selected = filedialog.askopenfilename(
+                    parent=self,
+                    title="Select your MetaTrader 5 terminal",
+                    filetypes=[("MetaTrader 5 terminal", "terminal64.exe terminal.exe"), ("Windows applications", "*.exe")],
+                )
+                if not selected:
+                    self.message.set("Select the MT5 terminal file to open both apps.")
+                    return
+            executable = mt5_executable(selected)
+            self.config_data["mt5_executable"] = str(executable)
+            if not self.save():
+                return
+            open_website_and_mt5(website_url, str(executable), os.startfile, webbrowser.open_new_tab)
+            self.message.set("MT5 and the website Trading page opened. Sign in on the website if prompted.")
+        except (ValueError, RuntimeError, OSError) as error:
+            self.message.set(f"Could not open both apps: {error}")
 
     def sync_snapshot(self) -> None:
         if self.sync_busy or self.sign_out_busy or not self.save():

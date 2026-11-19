@@ -53,6 +53,7 @@ Below 1024px the floating navigation becomes a fixed, scrollable drawer with 16p
 - The desktop header shows a text-labeled Sign out button. On mobile, the same action is available in the navigation drawer with a visible label.
 - The Windows connector has a Sign out and disconnect control. It stops scheduled sync and demo runs, revokes the paired device on the website, and clears its local device and MT5 credentials. If revocation cannot be confirmed, local activity stays stopped and the user can retry or revoke the device on the website.
 - The Windows connector has an Open Trading page on website button. It opens the configured website's authenticated `/app/trading` route in the browser; sign-in returns the user to Trading. The button never submits an MT5 order.
+- The Windows connector has an Open website and MT5 button. On first use, the user selects their MT5 terminal executable; the app remembers that local path, launches MT5, then opens the same Trading page. It does not pair, sync, or submit orders.
 - The MT5 MCP status is separate from simulation state and links to Accounts. It names unpaired, recently synced, offline, read error, paused, stale, checking, and unavailable states in text as well as color. A sync older than 45 seconds is unverified because the Windows connector normally syncs every 15 seconds; an old snapshot must not imply a current connection.
 
 ### Theme system

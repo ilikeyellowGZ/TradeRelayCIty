@@ -15,7 +15,7 @@ from traderelaycity_connector.strategy import Candle, confirmed_swings, validate
 from traderelaycity_connector.backtest import _simulate
 from traderelaycity_connector.strategy import CandidateSignal
 from traderelaycity_connector.simulation_client import SimulationClient, validate_simulation_base_url
-from traderelaycity_connector.main import trading_page_url
+from traderelaycity_connector.main import mt5_executable, open_website_and_mt5, trading_page_url
 from decimal import Decimal as D
 from datetime import datetime, timedelta, timezone
 
@@ -24,6 +24,25 @@ class ConnectorBoundaryTests(unittest.TestCase):
         self.assertEqual(trading_page_url("https://example.com/"), "https://example.com/app/trading")
         with self.assertRaises(ValueError):
             trading_page_url("https://example.com/unsafe")
+
+    def test_open_both_apps_launches_selected_mt5_and_website(self):
+        with tempfile.TemporaryDirectory() as directory:
+            terminal = Path(directory) / "terminal64.exe"
+            terminal.touch()
+            opened = []
+            open_website_and_mt5("https://example.com", str(terminal), lambda path: opened.append(("mt5", path)), lambda url: opened.append(("website", url)) or True)
+            self.assertEqual(opened, [("mt5", str(terminal)), ("website", "https://example.com/app/trading")])
+            with self.assertRaises(ValueError):
+                mt5_executable(str(Path(directory) / "other.exe"))
+
+    def test_invalid_website_never_launches_mt5(self):
+        with tempfile.TemporaryDirectory() as directory:
+            terminal = Path(directory) / "terminal.exe"
+            terminal.touch()
+            opened = []
+            with self.assertRaises(ValueError):
+                open_website_and_mt5("http://example.com", str(terminal), lambda path: opened.append(path), lambda url: True)
+            self.assertEqual(opened, [])
 
     @unittest.skipUnless(sys.platform == "win32", "Windows Credential Manager only")
     def test_credential_manager_round_trip(self):
